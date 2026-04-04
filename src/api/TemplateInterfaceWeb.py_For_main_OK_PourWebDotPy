@@ -1,0 +1,137 @@
+# src/api/templates.py
+from src.api.config import FEATURES, SAMPLE, FEATURE_LABELS, CHOICES
+
+# ------------------------------------------------------------
+# PAGE HTML
+# ------------------------------------------------------------
+HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Prédiction de priorisation d'accident </title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        input { margin-bottom: 8px; width: 150px; }
+        .row { display: flex; flex-wrap: wrap; gap: 10px; }
+        .field { display: flex; flex-direction: column; }
+        button { padding: 8px 15px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+<h1>Prédiction d'accident</h1>
+
+<div class="row">
+"""
+
+for feat, sample, label in zip(FEATURES, SAMPLE, FEATURE_LABELS):
+    if feat in CHOICES and isinstance(CHOICES[feat], dict) and len(CHOICES[feat]) > 0:
+        HTML += f'<div class="field"><label for="{feat}_select">{label}</label>\n'
+        HTML += f'  <select id="{feat}_select" data-feature="{feat}">\n'
+        for code, lib in sorted(
+            CHOICES[feat].items(), key=lambda x: (x[0] is None, x[0])
+        ):
+            code_str = "" if code is None else str(code)
+            selected = ""
+            if float(sample) == float(code):
+                selected = " selected"
+            HTML += f'    <option value="{code_str}"{selected}>{lib}</option>\n'
+        HTML += "  </select>\n"
+        HTML += "</div>\n"
+
+    else:
+        # champ numérique classique
+        value_attr = f' value="{sample}"' if sample is not None else ""
+        HTML += (
+            f'<div class="field">'
+            f'<label for="{feat}">{label}</label>'
+            f'<input id="{feat}" type="number" step="any"{value_attr}/>'
+            f"</div>\n"
+        )
+
+HTML += """
+</div>
+
+<button onclick="predict()">Prédire</button>
+
+<pre id="result"></pre>
+
+<script>
+
+
+const FIELDS = ["""
+
+for feat in FEATURES:
+    HTML += f'  "{feat}",'
+
+# HTML += ( devient car % FEATURES qui est mis commentaire
+HTML += """];
+
+function collectPayload() {
+  const payload = {};
+  for (const feat of FIELDS) {
+    const sel = document.getElementById(`${feat}_select`);
+    if (sel) {
+      const v = sel.value;
+      payload[feat] = (v === "" ? null : Number(v));
+      continue;
+    } const inp = document.getElementById(feat);
+    if (inp) {
+      const v = inp.value;
+      payload[feat] = (v === "" ? null : Number(v));
+    } else {
+      payload[feat] = null;
+    }
+  }
+  return payload;
+}
+
+
+async function predict() {
+    let payload = collectPayload();
+    const r = await fetch("/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+    const txt = await r.text();
+    const data = JSON.parse(txt);
+    const pred = Number(data?.prediction);
+    // <h2> met en gras et grossit. style="color..." ajoute la couleur.
+    if (pred === 1 ) {
+        header = "<h2 style='color: red;'>🚨 ACCIDENT PRIORITAIRE</h2>";
+    } else {
+        header = "<h2 style='color: green;'>✅ ACCIDENT NON PRIORITAIRE</h2>";
+    }
+
+    // Affichage simple mais pas très clair
+    //document.getElementById("result").innerText = header + txt;
+
+    // Formatage des probabilités (si elles existent)
+    let detailMsg = "";
+    if (data.probabilities) {
+        const pBenin = (data.probabilities[0] * 100).toFixed(1);
+        const pGrave = (data.probabilities[1] * 100).toFixed(1);
+        // le double retour à la ligne inutile avec h2 mis dans le header
+        /* utiliser ce typage de commentaire pour gérer aussi le + en commentaire */
+        /* detailMsg = `\n\n📊 ANALYSE DES RISQUES :\n` + */
+        /*             `• Risque Grave : ${pGrave}%\n` +  */
+        /*             `• Risque Bénin : ${pBenin}%`;     */
+        detailMsg = "📊 ANALYSE DES RISQUES :<br>" +
+                    "• Risque Grave : " + pGrave + "%<br>" +
+                    "• Risque Bénin : " + pBenin + "%";
+
+    } else {
+        // Cas dégradé : On affiche quand même un message poli
+        detailMsg = `\n\n(Détails des scores non disponibles. Comprende le pourquoi!)`;
+    }
+    // Affichage final sans le JSON brut - innerHTML pour balise h2
+    // document.getElementById("result").innerText = header + detailMsg;
+    document.getElementById("result").innerHTML = header + detailMsg;
+}
+</script>
+</body>
+</html>
+"""
+    # % FEATURES devenu inutiles car il y a ${pGrave}% et ${pBenin}%
+# ) devient inutile car présent à cause de % FEATURES qui est mis commentaire

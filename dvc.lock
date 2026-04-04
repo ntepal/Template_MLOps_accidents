@@ -56,8 +56,8 @@ stages:
     outs:
     - path: models/model.joblib
       hash: md5
-      md5: df7ba98ec047ec4e0e821807db53bee9
-      size: 107132601
+      md5: 2297383e7069576b431209d0632d3749
+      size: 107057721
   evaluate:
     cmd: uv run python src/models/evaluate_model.py models/model.joblib 
       data/preprocessed metrics.json
@@ -72,8 +72,8 @@ stages:
       size: 32825
     - path: models/model.joblib
       hash: md5
-      md5: df7ba98ec047ec4e0e821807db53bee9
-      size: 107132601
+      md5: 2297383e7069576b431209d0632d3749
+      size: 107057721
     - path: src/models/evaluate_model.py
       hash: md5
       md5: d53c5547b0848ea4e30d4f8c610a2844
@@ -81,5 +81,5 @@ stages:
     outs:
     - path: metrics.json
       hash: md5
-      md5: 55a70062ee78907f91e7a13ae1792510
-      size: 405
+      md5: 1312d59a5eab5e430809531b612e42db
+      size: 406

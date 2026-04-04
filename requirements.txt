@@ -10,6 +10,9 @@
 # external requirements
 click
 Sphinx
+# Même si Sphinx importe déjà jinja2,
+# il est présent pour indiquer qu'on l'utilise explicitement dans src
+jinja2
 coverage
 #awscli>=1.29.0
 pandas
@@ -29,3 +32,6 @@ pytest
 # sys
 # json
 # pathlib
+# fastapi et uvicorn pour le service
+fastapi
+uvicorn

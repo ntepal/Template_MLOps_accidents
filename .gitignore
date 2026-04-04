@@ -95,3 +95,4 @@ target/
 /.dvc/cache/
 /.dvc/tmp/
 /.dvc/config.local
+.venv/

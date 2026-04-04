@@ -232,9 +232,9 @@ setup-ci:
 	@# uniquement utilisé dans python-app.yml pour le workflow de CI (ex: GitHub Actions)
 	@# git push déclenche automatiquement python-app.yml et donc cette séquence
 	@echo "🛠️ Préparation de l'environnement pour GitHub Actions..."
-	
+
 	@# 1. Synchronisation stricte
-	@# --frozen : garantit que uv ne cherchera pas à mettre à jour le uv.lock. 
+	@# --frozen : garantit que uv ne cherchera pas à mettre à jour le uv.lock.
 	@# Si le lock est absent ou incohérent, la commande échoue (sécurité).
 	@echo "🔄 Installation via uv.lock..."
 	uv sync --frozen || (echo "❌ Erreur 1 : Fichier uv.lock absent ou corrompu !"; exit 1)
@@ -308,3 +308,10 @@ push:
 	@# git remote -v donne la liste de tous les lieux de stockages git.
 	@# Par défaut c'est origin avec https://github.com/XXXX/Template_MLOps_accidents.git
 	git push origin master
+
+# ======================
+# --- SERVEUR API ---
+# ======================
+serve:
+	@echo "🚀 Lancement de l'API FastAPI..."
+	uv run uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
