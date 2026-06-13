@@ -97,7 +97,9 @@ target/
 !/models/.gitkeep
 /.dvc/cache/
 /.dvc/tmp/
-/.dvc/config
+# Indispensable pour l'affichage du data pipeline dans Dagshub
+# NB: il a besoin de dvc.yaml, dvc.lock et .dvc/config
+#/.dvc/config
 /.dvc/config.local
 # Import pour synchro avec Dagshub
 # On autorise TOUS les fichiers .dvc du projet
