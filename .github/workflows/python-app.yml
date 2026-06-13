@@ -10,7 +10,14 @@ on:
   push:
     # Déclenche le workflow lors d'un push sur la branche par défaut
     # Vérifié sur GitHub (sélecteur de branche) et via 'git branch' en local
+    # Attention, en le mettant en commentaire, n'importe quelle branche
+    # déclenche ce workflow dès lors que le git push est fait sur le
+    # git add dvc.lock params.yaml
+    #branches: ["master"]
     branches: [ "master" ]
+    paths-ignore:
+      - "dvc.lock"
+      - "params.yaml"
   pull_request:
     # Vérification aussi lors des demandes de fusion vers master
     branches: [ "master" ]
@@ -56,10 +63,6 @@ jobs:
 
       - name: 🔍 Vérification Qualité (Linting)
         run: make quality
-
-      - name: 🚀 Génération de la Pipeline (Data)
-        # Exécute la préparation des données sur la VM
-        run: make pipeline
 
       - name: 🧪 Tests unitaires (Pytest)
         # Scanne le projet et lance toutes les fonctions test_xxx() 

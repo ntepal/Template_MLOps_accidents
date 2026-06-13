@@ -1,0 +1,50 @@
+name: DVC Sync Demo
+
+on:
+  push:
+    # Attention, en le mettant en commentaire, n'importe quelle branche
+    # déclenche ce workflow dès lors que le git push est fait sur le
+    # git add dvc.lock params.yaml
+    #branches: ["master"]
+    paths:
+      - "dvc.lock"
+      - "params.yaml"
+
+jobs:
+  dvc-sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Detect ML pipeline update
+        run: |
+          echo "======================================"
+          echo "🚀 MLOPS PIPELINE TRIGGERED"
+          echo "Commit: $GITHUB_SHA"
+          echo "Branch: $GITHUB_REF"
+          echo "======================================"
+
+      - name: Show DVC state (pipeline snapshot)
+        run: |
+          echo "📦 DVC LOCK SNAPSHOT:"
+          cat dvc.lock || echo "no dvc.lock found"
+
+      - name: Show parameters used for training
+        run: |
+          echo "⚙️ PARAMETERS SNAPSHOT:"
+          cat params.yaml || echo "no params.yaml found"
+
+      - name: Simulate model registry update
+        run: |
+          echo "======================================"
+          echo "📊 MODEL REGISTRY UPDATE"
+          echo "✔ Model version recorded"
+          echo "✔ Pipeline version locked (DVC)"
+          echo "✔ Reproducible ML snapshot created"
+          echo "======================================"
+
+      - name: Simulate next step (deployment hint)
+        run: |
+          echo "🚀 Next step: model to deployed..."
