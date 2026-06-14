@@ -738,7 +738,20 @@ docker-FullClean-full-build: ## [PROD][DOCKER] Reset TOTAL (Volumes/Images/Cache
 	@echo "Fichier de logs stocké dans logs/build.log (à partir de la racine)"
 	@# --no-cache: ignorer le cache donc tout reconstruire
 	@mkdir -p logs
-	@docker compose build --no-cache > logs/build.log 2>&1
+	@#docker compose build --no-cache > logs/build.log 2>&1
+	@docker compose build --no-cache > logs/build.log 2>&1 || { \
+		echo ""; \
+		echo "==============================================================="; \
+		echo "❌ DOCKER BUILD FAILED"; \
+		echo "==============================================================="; \
+		echo "👉 Problème déjà vu suite à la réinitialisation de la VM"; \
+		echo "👉 Dans le log: failed to load provenance blob (race condition)"; \
+		echo "⚡⚡⚡⚡⚡⚡⚡⚡ Action: RELANCER LA COMMANDE" ⚡⚡⚡⚡⚡⚡⚡⚡; \
+		echo "⚠️ Si le problème persiste, consulter les logs: logs/build.log"; \
+		echo "==============================================================="; \
+		exit 1; \
+	}
+
 
 	@echo "Construction du Runner ML (version 1.0)..."
 	@# image éphémère utilisée dans airflow/dags et impérativement absente du docker-compose
