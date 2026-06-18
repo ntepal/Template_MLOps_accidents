@@ -1,0 +1,137 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+env/
+myenv/
+my_env/
+venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# DotEnv configuration
+.env
+
+# Database
+*.db
+*.rdb
+
+# Pycharm
+.idea
+
+# VS Code
+.vscode/
+
+# Spyder
+.spyproject/
+
+# Jupyter NB Checkpoints
+.ipynb_checkpoints/
+
+# exclude data from source control by default
+/data/
+!/data/*.dvc
+
+# Mac OS-specific storage files
+.DS_Store
+
+# vim
+*.swp
+*.swo
+
+# Mypy cache
+.mypy_cache/
+*.joblib.venv/
+/models/*
+# sauf le fichier .gitkeep
+!/models/.gitkeep
+/.dvc/cache/
+/.dvc/tmp/
+# Indispensable pour l'affichage du data pipeline dans Dagshub
+# NB: il a besoin de dvc.yaml, dvc.lock et .dvc/config
+#/.dvc/config
+/.dvc/config.local
+# Import pour synchro avec Dagshub
+# On autorise TOUS les fichiers .dvc du projet
+!**/*.dvc
+
+.venv/
+logs/
+mlruns/
+
+# Redondance (Ceinture Bretelle)
+*.joblib
+# mais pas le .dvc (utile pour le stockage DVC)
+# Devient inutile grâce à !**/*.dvc
+#!*.joblib.dvc
+*.pkl
+# mais pas le .dvc (utile pour le stockage DVC)
+# Devient inutile grâce à !**/*.dvc
+#!*.pkl.dvc
+
+# On protège spécifiquement le dossier de test
+# On autorise tout le dossier simu_data_web
+!/simu_data_web/
+
+# Certificats et clés privées
+deployments/nginx/certs/
+
+# Fichier généré par Makefile
+mlflow-logrotate.conf
+.AccidentsSetupDVC_AlreadyDone
+
+# Autres
+/mlflow_artifacts/*
+# Déjà fait plus haut
+#!/models/.gitkeep
+/.dvc/config
