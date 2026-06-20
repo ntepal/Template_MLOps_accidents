@@ -9,18 +9,21 @@ echo ""
 echo "///////////////////////////////////////////////"
 echo "Vérification des dernières lignes de ~/.bashrc "
 echo "///////////////////////////////////////////////"
-
-echo ""
 echo "👉👉👉 cmd: tail -n 1 ~/.bashrc"
 echo "ℹ️ℹ️ℹ️ Vous devez voir export KUBECONFIG=$HOME/.kube/config"
 tail -n 1 ~/.bashrc
 
 echo ""
 echo "/////////////////////////////////////////////"
-echo "Vérification Installation de K3s SANS sudo..."
+echo "Vérification Version HELM utilisée"
 echo "/////////////////////////////////////////////"
+echo "👉👉👉 cmd: helm version"
+helm version
 
 echo ""
+echo "/////////////////////////////////////////////"
+echo "Vérification Installation de K3s SANS sudo..."
+echo "/////////////////////////////////////////////"
 echo "👉👉👉 cmd: which kubectl"
 which kubectl
 

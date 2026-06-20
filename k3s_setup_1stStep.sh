@@ -47,7 +47,13 @@ echo ""
 echo "##################################"
 echo "Installation de Helm..."
 echo "##################################"
-#curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+if ! command -v helm >/dev/null 2>&1; then
+  curl -sfL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+else
+  echo "Helm déjà installé ✔"
+fi
+echo " ==> Version helm utilisé: "
+helm version
 
 # 4. Configuration des permissions pour kubectl
 # Pour utiliser kubectl sans sudo
