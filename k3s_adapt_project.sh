@@ -121,7 +121,7 @@ echo "👉👉👉 cmd: kubectl get pods -n longhorn-system -w > logs/longhorn.l
 kubectl get pods -n longhorn-system -w > logs/longhorn.log 2>&1 &
 LOG_WATCH_PID=$!
 echo "📌📌📌 Le PID des logs en background est: PID=$LOG_WATCH_PID"
-ech ""
+echo ""
 echo "📌📌📌 On attend que les déploiements Longhorn soient effectués..."
 echo "👉👉👉 cmd: kubectl -n longhorn-system rollout status deploy/longhorn-driver-deployer --timeout=600s"
 kubectl -n longhorn-system rollout status deploy/longhorn-driver-deployer --timeout=600s
