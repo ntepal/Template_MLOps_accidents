@@ -53,6 +53,9 @@ echo "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
 #kubectl get crd | grep -E "longhorn|cert-manager" || true
 echo "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
 
+echo "📌📌📌 Création du répertoire logs"
+mkdir -p logs
+
 echo ""
 echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 echo "---------- INSTALLATION cert-manager  --- TOUJOURS LE FAIRE EN PREMIER"
@@ -63,10 +66,22 @@ helm repo add jetstack https://charts.jetstack.io
 echo "👉👉👉 cmd: helm repo update"
 helm repo update
 # Créer le namespace et l'installer
-echo "👉👉👉 cmd: helm upgrade --install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set crds.enabled=true"
+#echo "👉👉👉 cmd: helm upgrade --install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set crds.enabled=true"
+#helm upgrade --install cert-manager jetstack/cert-manager \
+#  -n cert-manager --create-namespace \
+#  --set crds.enabled=true
+
+#echo "👉👉👉 cmd: helm upgrade --install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set crds.enabled=true --wait --timeout 10m | tee logs/cert-manager.log"
+echo "📌📌📌 Log à partir de la racine dans logs/cert-manager.log"
 helm upgrade --install cert-manager jetstack/cert-manager \
-  -n cert-manager --create-namespace \
-  --set crds.enabled=true
+  -n cert-manager \
+  --create-namespace \
+  --set crds.enabled=true \
+  --wait \
+  --timeout 10m \
+  | tee logs/cert-manager.log
+echo "✅ cert-manager installé avec succès"
+
 # Vérification
 echo "👉👉👉 cmd: kubectl get pods -n cert-manager  ==> on doit voir cert-manager, cert-manager-cainjector et cert-manager-webhook dans l'état running"
 kubectl get pods -n cert-manager
@@ -81,19 +96,29 @@ echo ""
 echo "*******************************************************************************************"
 echo " >>>>>>>>> Prérequis: ISCSI "
 echo "*******************************************************************************************"
-echo "👉👉👉 cmd: sudo apt update"
-sudo apt update
-echo "👉👉👉 cmd: sudo apt install -y open-iscsi"
-sudo apt install -y open-iscsi
-echo "👉👉👉 cmd: sudo systemctl enable iscsid"
-sudo systemctl enable iscsid
+echo "👉👉👉 cmd: sudo apt update > logs/apt-update.log 2>&1"
+echo "📌📌📌 Log à partir de la racine dans logs/apt-update.log"
+# sudo apt update
+sudo apt update > logs/apt-update.log 2>&1
+echo "✅ APT UPDATE DONE"
+echo "👉👉👉 cmd: sudo apt install -y open-iscsi > logs/open-iscsi.log 2>&1"
+# sudo apt install -y open-iscsi
+sudo apt install -y open-iscsi > logs/open-iscsi.log 2>&1
+echo "✅ Install OPEN-ISCSI DONE"
+echo "👉👉👉 cmd: sudo systemctl enable iscsid > logs/enable-iscsi.log 2>&1"
+# sudo systemctl enable iscsid
+sudo systemctl enable iscsid > logs/enable-iscsi.log 2>&1
+echo "✅ ISCSI ENABLED"
 echo "👉👉👉 cmd: sudo systemctl start iscsid"
 sudo systemctl start iscsid
-echo "👉👉👉 cmd: systemctl status iscsid --no-pager"
-systemctl status iscsid --no-pager
-echo "👉👉👉 cmd: kubectl get nodes -o wide ==> Pour confirmation"
+echo "👉👉👉 cmd: systemctl status iscsid --no-pager > logs/status-iscsi.log 2>&1"
+# systemctl status iscsid --no-pager
+systemctl status iscsid --no-pager > logs/status-iscsi.log 2>&1
+echo "👉👉👉 cmd: kubectl get nodes -o wide 2>&1 | tee logs/status_nodes.log ==> Pour confirmation"
 echo "📌📌📌 On doit voir NAME STATUS ROLES : ip-xxx-yy... Ready control-plane,master"
-kubectl get nodes -o wide
+# kubectl get nodes -o wide
+# Affichage sur l'écran et dans le fichier
+kubectl get nodes -o wide 2>&1 | tee logs/status_nodes.log
 echo "******************************************************************************************"
 
 echo ""
@@ -142,11 +167,6 @@ echo "✅ Longhorn fully ready"
 echo ""
 echo "👉👉👉 cmd: kubectl get pods -n longhorn-system  ==> tous les pods doivent être running"
 kubectl get pods -n longhorn-system
-# Exposer l'interface Longhorn et Pour un premier test :
-echo "📌📌📌 Exposer l'interface Longhorn"
-echo "👉👉👉 cmd: kubectl -n longhorn-system port-forward svc/longhorn-frontend 8080:80"
-kubectl -n longhorn-system port-forward svc/longhorn-frontend 8080:80
-echo "📌📌📌 VERIFIER MANUELLEMENT L'INTERFACE VIA http://localhost:8080"
 echo ""
 echo "📌📌📌 Définir Longhorn comme StorageClass par défaut"
 echo "👉👉👉 cmd: kubectl get storageclass  ==> on devrait voir local-path et longhorn"
@@ -169,3 +189,9 @@ echo "👉👉👉 cmd: kubectl get storageclass ==> on doit voir longhorn (defa
 kubectl get storageclass
 echo "👉👉👉 cmd: kubectl get pods -A  ==> on doit voir kube-system traefik... longhorn-system longhorn... cert-manager cert-manager-..."
 kubectl get pods -A
+echo ""
+# Exposer l'interface Longhorn et Pour un premier test :
+echo "📌📌📌 Pour un 1er test, exposer l'interface Longhorn en lançant manuellemenet la commande"
+echo "👉👉👉 cmd: kubectl -n longhorn-system port-forward svc/longhorn-frontend 8080:80"
+# kubectl -n longhorn-system port-forward svc/longhorn-frontend 8080:80
+echo "📌📌📌 VERIFIER MANUELLEMENT L'INTERFACE VIA http://localhost:8080 ou http://@IP_VM:8080"
