@@ -71,7 +71,7 @@ helm repo update
 #  -n cert-manager --create-namespace \
 #  --set crds.enabled=true
 
-#echo "👉👉👉 cmd: helm upgrade --install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set crds.enabled=true --wait --timeout 10m | tee logs/cert-manager.log"
+#echo "👉👉👉 cmd: helm upgrade --install cert-manager jetstack/cert-manager -n cert-manager --create-namespace --set crds.enabled=true --wait --timeout 10m > logs/cert-manager.log 2>&1"
 echo "📌📌📌 Log à partir de la racine dans logs/cert-manager.log"
 helm upgrade --install cert-manager jetstack/cert-manager \
   -n cert-manager \
@@ -79,7 +79,7 @@ helm upgrade --install cert-manager jetstack/cert-manager \
   --set crds.enabled=true \
   --wait \
   --timeout 10m \
-  | tee logs/cert-manager.log
+  > logs/cert-manager.log 2>&1
 echo "✅ cert-manager installé avec succès"
 
 # Vérification
@@ -134,8 +134,15 @@ helm repo update
 echo "👉👉👉 cmd: kubectl get namespace longhorn-system >/dev/null 2>&1 || kubectl create namespace longhorn-system"
 kubectl get namespace longhorn-system >/dev/null 2>&1 || kubectl create namespace longhorn-system
 # Installer
-echo "👉👉👉 cmd: helm upgrade --install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace"
-helm upgrade --install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace
+echo "👉👉👉 cmd: helm upgrade --install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace --wait --timeout 15m > logs/longhorn_namespace.log 2>&1"
+# helm upgrade --install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace
+helm upgrade --install longhorn longhorn/longhorn \
+  --namespace longhorn-system \
+  --create-namespace \
+  --wait \
+  --timeout 15m \
+  > logs/longhorn_namespace.log 2>&1
+echo "✅ longhorn namespace created with success"
 # Attendre quelques minutes :
 echo ""
 echo "📌📌📌 On attend que le Longhorn deployments soit effectif. Cela peut prendre qques minutes..."
