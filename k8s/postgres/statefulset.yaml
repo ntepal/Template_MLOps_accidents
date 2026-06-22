@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+spec:
+  serviceName: postgres
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: postgres
+
+  template:
+    metadata:
+      labels:
+        app: postgres
+
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16.13-trixie
+
+          ports:
+            - containerPort: 5432
+
+          envFrom:
+            - secretRef:
+                name: postgres-secret
+
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+
+          # Démarrage de l'application
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-U", "airflow"]
+            # Tentative chaque periodSeconds
+            periodSeconds: 10
+            # Si absent, par défaut 1s
+            timeoutSeconds: 1
+            # Jusqu'à 30 échecs (300s) avant d'abandonner
+            failureThreshold: 30
+            # NB: si absent, par défaut 1s
+            successThreshold: 1
+
+          # Attendre que ce pod soit prêt à recevoir du trafic
+          # Une fois que le Kubernetes reçoit le OK du startup, il passe au readiness
+          # Pendant cette phase, des choses lourdes et prioritaires peuvent être effectuées, 
+          # et qui peuvent rendre le service temporairement inaccessible
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "airflow"]
+            # attendre 10s avant de faire le test. Pas indspensable avec le startup présent
+            # initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 10
+
+          # Pod toujours vivant
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "airflow"]
+            periodSeconds: 10
+            # Si problème ne pas attendre trop longtemps avant redémarrage
+            failureThreshold: 3
+
+  # Préfére à persistentVolumeClaim: claimName: postgres-pvc car avec réplicas,
+  # on n'est pas obligé de créer plusieurs pvc.yaml
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: longhorn
+        resources:
+          requests:
+            # 5GB sur le disk
+            storage: 5Gi
