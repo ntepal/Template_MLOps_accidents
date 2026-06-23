@@ -74,5 +74,5 @@ spec:
         storageClassName: longhorn
         resources:
           requests:
-            # 5GB sur le disk
+            # Il faut un minimum de 5GB (mutliple de 1024) sur le disk
             storage: 5Gi

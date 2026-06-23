@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  # Fait dans ce fichier, ça revient à faire kubectl create namespace accidents-severity sur le terminal
+  name: accidents-severity
+  labels:
+    # Sert de filtre quand on veut récupérer des infos sur ce projet
+    project: accidents-severity

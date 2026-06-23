@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: mlflow
+
+  template:
+    metadata:
+      labels:
+        app: mlflow
+
+    spec:
+      # Le securityContext définit l'identité du processus dans le conteneur
+      # et les permissions d'accès au volume (fsGroup)
+      # Remplace les anciens scripts (fix-permissions) de type chown dans Docker Compose
+      # Les containers (docker-compose) écrivent avec les droits roots. Pour les volumes
+      # partagés, cela générait des conflits de droits car des fichiers étaient root
+      # Le fix-permissions permet de fixer les droit users/group dès le début et ainsi les
+      # containers qui ont les droits roots ont donc les droits pour écrire dans des répertoires
+      # de droits users/groups et donc ne les modifient pas
+      # Avec securityContext, on fixe lses droits runAsUser / runAsGroup et donc ils tournent
+      # directement en UID cohérents
+      # Avec le fsgroup: le volume monté est automatiquement accessible au groupe 1000
+      # Kubernetes ajuste les permissions au montage
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+
+      containers:
+        - name: mlflow
+          image: image-mlflow
+
+          ports:
+            - containerPort: 5000
+
+          env:
+            - name: MLFLOW_HTTP_REQUEST_TIMEOUT
+              value: "60"
+            - name: DATABASE_URL
+              value: postgresql://airflow:airflow@postgres:5432/mlflow
+
+          volumeMounts:
+            - name: mlflow-artifacts
+              mountPath: /app/artifacts
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            periodSeconds: 10
+
+      volumes:
+        - name: mlflow-artifacts
+          persistentVolumeClaim:
+            claimName: mlflow-artifacts-pvc

@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+
+# Mêmes commentaires que dans postgres
+metadata:
+  name: redis
+  labels:
+    app: redis
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: redis
+
+  template:
+    metadata:
+      labels:
+        app: redis
+
+    spec:
+      containers:
+        - name: redis
+          image: redis:7
+
+          ports:
+            - containerPort: 6379
+
+          # On lance la commande redis-server --save "" --appendonly no
+          args:
+            # nom de la commande suivi de ces 2 arguments (souvent déjà fourni par l'image officielle)
+            - redis-server
+            # désactive les snapshots RDB (sauvegarde périodique sur disque)
+            - --save ""
+            # désactive le journal AOF
+            - --appendonly no
+
+          startupProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 10
+            failureThreshold: 30
+
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 10
+            failureThreshold: 10
+
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 10
+            failureThreshold: 3
+
+          # RAM - CPU: 100m = 100milliCPU = 0.1CPU
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

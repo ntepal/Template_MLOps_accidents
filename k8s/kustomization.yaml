@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# On indique dans quel namespace déployer ses ressources
+namespace: accidents-severity
+
+resources:
+  - namespace.yaml
+  - postgres
+  - redis
