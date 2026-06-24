@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: airflow-config
+
+data:
+  PROJECT_NAME: "accidents-severity"
+  DOCKER_MLFLOW_TRACKING_URI: "http://mlflow_server:5000"
+  DAGSHUB_REPO_NAME: "Template_MLOps_accidents"
+
+  # --- Mlflow ---
+  MLFLOW_TRACKING_URI: ${DOCKER_MLFLOW_TRACKING_URI}
+  MLFLOW_EXPERIMENT_NAME: ${PROJECT_NAME}
+
+
+  # --- Airflow core ---
+  AIRFLOW__CORE__EXECUTOR: "CeleryExecutor"
+  AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+  AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+  AIRFLOW__CORE__HOSTNAME_CALLABLE: "socket.gethostname"
+
+  # --- Database ---
+  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
+  AIRFLOW__CORE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
+
+  # --- Celery / Redis ---
+  AIRFLOW__CELERY__BROKER_URL: "redis://redis:6379/0"
+  AIRFLOW__CELERY__RESULT_BACKEND: "db+postgresql://airflow:airflow@postgres:5432/airflow"
+
+  # --- Webserver ---
+  AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: "true"
+  AIRFLOW__WEBSERVER__BASE_URL: "http://localhost/airflow"
+  AIRFLOW__WEBSERVER__RATELIMIT_STORAGE_URI: "redis://redis:6379/0"
+
+  # --- API ---
+  AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session"
+
+  # --- DVC ---
+  DVC_REMOTE: "origin"
+
+  # --- DAGSHUG ---
+  DAGSHUB_REPO_NAME: ${DAGSHUB_REPO_NAME}
+  AWS_ENDPOINT_URL: "https://dagshub.com/s3"

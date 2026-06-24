@@ -61,6 +61,8 @@ target/
 
 # DotEnv configuration
 .env
+.env.secret
+.env.config
 
 # Database
 *.db

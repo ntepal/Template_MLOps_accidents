@@ -1,3 +1,10 @@
+# On vérifie que le service renvoie bien une erreur si postgres n'a pas démarré
+# Ainsi, grâce au deployement, Kubernetes redémarre automatiquement le pod
+# Donc, grâce à ce mécanisme, la dépendance (docker-compose) devient inutile
+# Pour tester, on lance kubectl apply -k k8s/mlflow puis kubectl get pods -n accidents-severity -w
+# pour voir l'évolution temps réel. Puis sur un autre terminal, on fait 
+# kubectl logs -f deployment/mlflow -n accidents-severity pour voir en temps réel
+# ce qui se passe et s'assurer que ça plante car le postgres n'est pas ready
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -50,18 +57,27 @@ spec:
             - name: mlflow-artifacts
               mountPath: /app/artifacts
 
+          startupProbe:
+            httpGet:
+              path: /
+              port: 5000
+            periodSeconds: 10
+            failureThreshold: 30   # ~150s max
+
           readinessProbe:
             httpGet:
               path: /
               port: 5000
-            initialDelaySeconds: 10
             periodSeconds: 10
+            failureThreshold: 3
 
           livenessProbe:
             httpGet:
               path: /
               port: 5000
             periodSeconds: 10
+            # Prendre en compte les lenteurs
+            failureThreshold: 5
 
       volumes:
         - name: mlflow-artifacts

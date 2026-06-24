@@ -1,0 +1,27 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+images:
+  - name: image-airflow
+    newName: accidents_severity/airflow
+    newTag: "1.0"
+
+configMapGenerator:
+  - name: airflow-config
+    envs:
+      - .env.config
+
+secretGenerator:
+  - name: airflow-secret
+    envs:
+      - .env.secret
+
+resources:
+  - service.yaml
+  - configmap.yaml
+  - secret.yaml
+  - init-job.yaml
+  - deployment-webserver.yaml
+  - deployment-scheduler.yaml
+  - deployment-worker.yaml
+  - deployment-flower.yaml
