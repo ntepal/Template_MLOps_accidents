@@ -4,9 +4,10 @@ metadata:
   name: airflow-config
 
 data:
-  PROJECT_NAME: "accidents-severity"
-  DOCKER_MLFLOW_TRACKING_URI: "http://mlflow_server:5000"
-  DAGSHUB_REPO_NAME: "Template_MLOps_accidents"
+  # inutile car j'ai mis .env.config dans le kustomization
+  #PROJECT_NAME: "accidents-severity"
+  #DOCKER_MLFLOW_TRACKING_URI: "http://mlflow_server:5000"
+  #DAGSHUB_REPO_NAME: "Template_MLOps_accidents"
 
   # --- Mlflow ---
   MLFLOW_TRACKING_URI: ${DOCKER_MLFLOW_TRACKING_URI}
@@ -18,14 +19,14 @@ data:
   AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
   AIRFLOW__CORE__LOAD_EXAMPLES: "false"
   AIRFLOW__CORE__HOSTNAME_CALLABLE: "socket.gethostname"
-
-  # --- Database ---
-  AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
-  AIRFLOW__CORE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
+  # GIT_SYNC_DEST = mlops_accidents_k3s ce qui permet d'avoir la même arborescence que sur github
+  AIRFLOW__CORE__DAGS_FOLDER: "/git/mlops_accidents_k3s/deployments/airflow/dags"
+  AIRFLOW__CORE__PLUGINS_FOLDER: "/git/mlops_accidents_k3s/deployments/airflow/plugins"
+  # Relecture des dags toutes les 30s
+  AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL=30
 
   # --- Celery / Redis ---
   AIRFLOW__CELERY__BROKER_URL: "redis://redis:6379/0"
-  AIRFLOW__CELERY__RESULT_BACKEND: "db+postgresql://airflow:airflow@postgres:5432/airflow"
 
   # --- Webserver ---
   AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: "true"

@@ -1,0 +1,118 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-scheduler
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: airflow-scheduler
+
+  template:
+    metadata:
+      labels:
+        app: airflow-scheduler
+
+    spec:
+      # Comme dans le deployment de mlflow pour s'assurer des droits identiques partout
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h postgres -p 5432 -U airflow; do
+                echo "⏳ Waiting for postgres..."
+                sleep 2
+              done
+              echo "✅ Postgres is ready"
+
+      containers:
+        - name: git-sync
+          image: registry.k8s.io/git-sync/git-sync:v4.1.0
+
+          env:
+            # On clone la branche mlops_accidents_k3s du repo github
+            - name: GIT_SYNC_REPO
+              value: "https://github.com/ntepal/Template_MLOps_accidents.git"
+            - name: GIT_SYNC_BRANCH
+              value: "mlops_accidents_k3s"
+            # nom du dossier en local sur la VM = /GIT_SYNC_ROOT/GIT_SYNC_DEST = le contenu de mlops_accidents_k3s
+            - name: GIT_SYNC_ROOT
+              value: "/git"
+            - name: GIT_SYNC_DEST
+              # Le répertoire de travail (la racine) est /git (défini ci-dessous dans volumeMounts)
+              # Donc GIT_SYNC_ROOT/GIT_SYNC_DEST contient le contenu de la branche GIT_SYNC_BRANCH
+              # Indispensable en cas de multi-branche car ainsi, chaque repo a son contexte protégé
+              # Sans le repo, les contextes peuvent se percuter et générer des conflits
+              # Mais même utile avec un seul repo pour avoir la logique de l'arborescence
+              value: "mlops_accidents_k3s"
+            # Resynchronise toutes les x secondes
+            - name: GIT_SYNC_WAIT
+              value: "30"
+
+          volumeMounts:
+            - name: airflow-git-repo
+              # Répertoire de travail du container GitSync
+              mountPath: /git
+
+        - name: scheduler
+          image: accidents_severity-airflow:1.0
+
+          command: ["bash", "-c"]
+          args:
+            - airflow scheduler
+
+          envFrom:
+            - configMapRef:
+                name: airflow-config
+            - secretRef:
+                name: airflow-secret
+
+          env:
+            - name: AIRFLOW__CORE__EXECUTOR
+              value: CeleryExecutor
+
+          volumeMounts:
+            - name: airflow-git-repo
+              mountPath: /git
+
+            - name: logs
+              mountPath: /opt/airflow/logs
+
+          readinessProbe:
+            exec:
+              command:
+                - bash
+                - -c
+                - airflow jobs check --job-type SchedulerJob --hostname "$(hostname)"
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+
+          livenessProbe:
+            exec:
+              command:
+                - bash
+                - -c
+                - airflow jobs check --job-type SchedulerJob --hostname "$(hostname)"
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+
+      volumes:
+        - name: airflow-git-repo
+          emptyDir: {}
+
+        - name: logs
+          persistentVolumeClaim:
+            claimName: airflow-logs-pvc

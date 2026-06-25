@@ -1,0 +1,126 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airflow-webserver
+  labels:
+    app: airflow-webserver
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: airflow-webserver
+
+  template:
+    metadata:
+      labels:
+        app: airflow-webserver
+
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h postgres -p 5432 -U airflow; do
+                echo "⏳ Waiting for postgres..."
+                sleep 2
+              done
+              echo "✅ Postgres is ready"
+
+      containers:
+        - name: git-sync
+          image: registry.k8s.io/git-sync/git-sync:v4.1.0
+
+          env:
+            # On clone la branche mlops_accidents_k3s du repo github
+            - name: GIT_SYNC_REPO
+              value: "https://github.com/ntepal/Template_MLOps_accidents.git"
+            - name: GIT_SYNC_BRANCH
+              value: "mlops_accidents_k3s"
+            # nom du dossier en local sur la VM = /GIT_SYNC_ROOT/GIT_SYNC_DEST = le contenu de mlops_accidents_k3s
+            - name: GIT_SYNC_ROOT
+              value: "/git"
+            - name: GIT_SYNC_DEST
+              # Le répertoire de travail (la racine) est /git (défini ci-dessous dans volumeMounts)
+              # Donc GIT_SYNC_ROOT/GIT_SYNC_DEST contient le contenu de la branche GIT_SYNC_BRANCH
+              # Indispensable en cas de multi-branche car ainsi, chaque repo a son contexte protégé
+              # Sans le repo, les contextes peuvent se percuter et générer des conflits
+              # Mais même utile avec un seul repo pour avoir la logique de l'arborescence
+              value: "mlops_accidents_k3s"
+            # Resynchronise toutes les x secondes
+            - name: GIT_SYNC_WAIT
+              value: "30"
+
+          volumeMounts:
+            - name: airflow-git-repo
+              # Répertoire de travail du container GitSync
+              mountPath: /git
+
+        - name: webserver
+
+          image: accidents_severity-airflow:1.0
+          imagePullPolicy: IfNotPresent
+
+          command: ["bash", "-c"]
+          args:
+            - airflow webserver
+
+          ports:
+            - containerPort: 8080
+
+          envFrom:
+            - configMapRef:
+                name: airflow-config
+            - secretRef:
+                name: airflow-secret
+
+          env:
+            - name: AIRFLOW__WEBSERVER__PORT
+              value: "8080"
+
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 10
+            failureThreshold: 30
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 10
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 10
+            failureThreshold: 5
+
+          volumeMounts:
+            - name: airflow-git-repo
+              # Répertoire de travail du container GitSync
+              # Les volumes dags et plugins sont présent
+              # grâce aux variables settées dans configmap.yaml
+              mountPath: /git
+            - name: logs
+              mountPath: /opt/airflow/logs
+
+      volumes:
+        - name: airflow-git-repo
+          # Volume via GitSync container
+          emptyDir: {}
+
+        - name: logs
+          persistentVolumeClaim:
+            claimName: airflow-pvc-logs

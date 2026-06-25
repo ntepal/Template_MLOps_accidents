@@ -633,8 +633,6 @@ push: ## [SYNC] Synchronisation bidirectionnelle : Git (Code) + DagsHub (Data/Mo
 docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou degub (non sécurisé) NB: .env configuré
 	@# Port externe 80 car port par défaut pour le navigateur et donc pas besoin de l'ajouter dans le navigateur
 	@rm -f .env
-	@rm -f k8s/airflow/.env.config
-	@rm -f k8s/airflow/.env.secret
 	@echo "🛠️  Configuration de l'environnement..."
 	@echo "------------------------------------------"
 	@# Boucle tant que la saisie n'est ni 'prod' ni 'debug'
@@ -645,7 +643,6 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 	@echo "🔑 Génération d'une nouvelle clé Fernet de sécurité..."
 	@FERNET=$$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"); \
 	echo "AIRFLOW_FERNET_KEY=$$FERNET" > .env; \
-	echo "AIRFLOW_FERNET_KEY=$$FERNET" > k8s/airflow/.env.secret; \
 	echo ""
 	echo "👤 Configuration de l'utilisateur Airflow (valider vide pour 'admin')"; \
 	read -p "👉 Airflow Username [admin]: " user; \
@@ -653,9 +650,7 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 	read -p "👉 Airflow Password [admin]: " pass; \
 	pass=$${pass:-admin}; \
 	echo "_AIRFLOW_WWW_USER_USERNAME=$$user" >> .env; \
-	echo "_AIRFLOW_WWW_USER_USERNAME=$$user" >> k8s/airflow/.env.secret; \
 	echo "_AIRFLOW_WWW_USER_PASSWORD=$$pass" >> .env; \
-	echo "_AIRFLOW_WWW_USER_PASSWORD=$$pass" >> k8s/airflow/.env.secret; \
 	mode=""; \
 	while [ "$$mode" != "prod" ] && [ "$$mode" != "debug" ]; do \
 		echo "💡 prod (production): mode sécurisé SSL/HTTPS" ; \
@@ -684,34 +679,18 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 
 	@# Ajout des variables d'export du Makefile pour utilisation direct de la commande docker compose
 	@echo "PROJECT_NAME=$$PROJECT_NAME" >> .env
-	@echo "PROJECT_NAME=$$PROJECT_NAME" >> k8s/airflow/.env.config
 	@echo "DAGSHUB_REPO_NAME=$$DAGSHUB_REPO_NAME" >> .env
-	@echo "DAGSHUB_REPO_NAME=$$DAGSHUB_REPO_NAME" >> k8s/airflow/.env.config
-	@echo "DAGSHUB_USER=$(DAGSHUB_USER)" >> k8s/airflow/.env.secret
-	@echo "DAGSHUB_S3_ACCESS_KEY_ID=$(DAGSHUB_S3_ACCESS_KEY_ID)" >> k8s/airflow/.env.secret
-	@echo "DAGSHUB_S3_SECRET_ACCESS_KEY=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/airflow/.env.secret
 	@echo "PROJECT_IP=$$PROJECT_IP" >> .env
-	@echo "PROJECT_IP=$$PROJECT_IP" >> .env.config
 	@echo "PATH=$$PATH" >> .env
-	@echo "PATH=$$PATH" >> .env.config
 	@echo "USER_ID=$$USER_ID" >> .env
-	@echo "USER_ID=$$USER_ID" >> .env.config
 	@echo "GROUP_ID=$$GROUP_ID" >> .env
-	@echo "GROUP_ID=$$GROUP_ID" >> .env.config
 	@echo "AIRFLOW_UID=$$AIRFLOW_UID" >> .env
-	@echo "AIRFLOW_UID=$$AIRFLOW_UID" >> .env.config
 	@echo "AIRFLOW_GID=$$AIRFLOW_GID" >> .env
-	@echo "AIRFLOW_GID=$$AIRFLOW_GID" >> .env.config
 	@echo "MLFLOW_TRACKING_URI=$$MLFLOW_TRACKING_URI" >> .env
-	@echo "MLFLOW_TRACKING_URI=$$MLFLOW_TRACKING_URI" >> .env.config
 	@echo "DOCKER_MLFLOW_TRACKING_URI=$$DOCKER_MLFLOW_TRACKING_URI" >> .env
-	@echo "DOCKER_MLFLOW_TRACKING_URI=$$DOCKER_MLFLOW_TRACKING_URI" >> k8s/airflow/.env.config
 	@echo "EVIDENTLY_PATH=$$EVIDENTLY_PATH" >> .env
-	@echo "EVIDENTLY_PATH=$$EVIDENTLY_PATH" >> .env.config
 	@echo "WORKSPACE_NAME=$$WORKSPACE_NAME" >> .env
-	@echo "WORKSPACE_NAME=$$WORKSPACE_NAME" >> .env.config
 	@echo "EVIDENTLY_WORKSPACE=$$EVIDENTLY_WORKSPACE" >> .env
-	@echo "EVIDENTLY_WORKSPACE=$$EVIDENTLY_WORKSPACE" >> .env.config
 
 	@echo "------------------------------------------"
 	@echo "📝 Fichier .env généré avec succès !"

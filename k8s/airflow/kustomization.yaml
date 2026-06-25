@@ -21,6 +21,7 @@ resources:
   - configmap.yaml
   - secret.yaml
   - init-job.yaml
+  - pvc-logs.yaml
   - deployment-webserver.yaml
   - deployment-scheduler.yaml
   - deployment-worker.yaml
