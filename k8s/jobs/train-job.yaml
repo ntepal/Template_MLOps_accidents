@@ -1,0 +1,45 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model-training
+spec:
+  backoffLimit: 2
+
+  template:
+    spec:
+      restartPolicy: Never
+
+      containers:
+        - name: train
+          image: accidents_severity-train:1.0
+
+          env:
+            - name: MLFLOW_TRACKING_URI
+              value: "http://mlflow:5000"
+            - name: UV_LINK_MODE
+              value: "copy"
+            - name: GIT_PYTHON_REFRESH
+              value: "quiet"
+
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+
+            - name: models
+              mountPath: /app/models
+
+           - name: artifacts
+             mountPath: /app/artifacts
+
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: data-pvc
+
+        - name: models
+          persistentVolumeClaim:
+            claimName: models-pvc
+
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: mlflow-artifacts-pvc

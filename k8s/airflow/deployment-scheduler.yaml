@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: airflow-scheduler
+  labels:
+    app: airflow-webserver
 spec:
   replicas: 1
 
@@ -65,6 +67,10 @@ spec:
 
         - name: scheduler
           image: accidents_severity-airflow:1.0
+          # Si absente alors on l'a récupère sur le docker hub
+          # Evolution dans un env de prod: mettre en place le sytème
+          # pour récupérer l'image
+          imagePullPolicy: IfNotPresent
 
           command: ["bash", "-c"]
           args:
@@ -80,39 +86,50 @@ spec:
             - name: AIRFLOW__CORE__EXECUTOR
               value: CeleryExecutor
 
-          volumeMounts:
-            - name: airflow-git-repo
-              mountPath: /git
+          # startupProbe: inutile car démarrage rapide
 
-            - name: logs
-              mountPath: /opt/airflow/logs
-
+          # Vérification périodique pour savoir si le pod peut recevoir du trafic
           readinessProbe:
+            # NB: HOSTNAME est fourni automatiquement
             exec:
               command:
                 - bash
                 - -c
-                - airflow jobs check --job-type SchedulerJob --hostname "$(hostname)"
+                - airflow jobs check --job-type SchedulerJob --hostname "$HOSTNAME"
             initialDelaySeconds: 30
             periodSeconds: 30
             timeoutSeconds: 10
             failureThreshold: 5
 
+          # Vérification périodique pour savoir si le pod est toujours vivant
+          # Donc comme bonne pratique, remplacer la commande qui était la même que dans
+          # readinessProbe par une commande qui ne fait que vérifier si le process est toujours vivant
           livenessProbe:
             exec:
               command:
                 - bash
                 - -c
-                - airflow jobs check --job-type SchedulerJob --hostname "$(hostname)"
+                - pgrep -f airflow-scheduler
             initialDelaySeconds: 30
             periodSeconds: 30
             timeoutSeconds: 10
             failureThreshold: 5
 
+          volumeMounts:
+            - name: airflow-git-repo
+              # Répertoire de travail du container GitSync
+              # Les volumes dags et plugins sont présent
+              # grâce aux variables settées dans configmap.yaml
+              mountPath: /git
+
+            - name: logs
+              mountPath: /opt/airflow/logs
+
       volumes:
         - name: airflow-git-repo
+          # Volume via GitSync container
           emptyDir: {}
 
         - name: logs
           persistentVolumeClaim:
-            claimName: airflow-logs-pvc
+            claimName: airflow-pvc-logs

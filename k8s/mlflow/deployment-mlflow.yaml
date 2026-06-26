@@ -40,9 +40,26 @@ spec:
         runAsGroup: 1000
         fsGroup: 1000
 
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h postgres -p 5432 -U airflow; do
+                echo "⏳ Waiting for postgres..."
+                sleep 2
+              done
+              echo "✅ Postgres is ready"
+
       containers:
         - name: mlflow
-          image: image-mlflow
+          image: accidents-severity_mlflow:1.0
+          # Si absente alors on l'a récupère sur le docker hub
+          # Evolution dans un env de prod: mettre en place le sytème
+          # pour récupérer l'image
+          imagePullPolicy: IfNotPresent
 
           ports:
             - containerPort: 5000
@@ -52,10 +69,6 @@ spec:
               value: "60"
             - name: DATABASE_URL
               value: postgresql://airflow:airflow@postgres:5432/mlflow
-
-          volumeMounts:
-            - name: mlflow-artifacts
-              mountPath: /app/artifacts
 
           startupProbe:
             httpGet:
@@ -78,6 +91,10 @@ spec:
             periodSeconds: 10
             # Prendre en compte les lenteurs
             failureThreshold: 5
+
+          volumeMounts:
+            - name: mlflow-artifacts
+              mountPath: /app/artifacts
 
       volumes:
         - name: mlflow-artifacts

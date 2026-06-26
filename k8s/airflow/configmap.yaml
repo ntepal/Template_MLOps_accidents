@@ -13,11 +13,11 @@ data:
   MLFLOW_TRACKING_URI: ${DOCKER_MLFLOW_TRACKING_URI}
   MLFLOW_EXPERIMENT_NAME: ${PROJECT_NAME}
 
-
   # --- Airflow core ---
   AIRFLOW__CORE__EXECUTOR: "CeleryExecutor"
   AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
   AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+  # Sert à dire comment déterminer le hostname (variable HOSTNAME)
   AIRFLOW__CORE__HOSTNAME_CALLABLE: "socket.gethostname"
   # GIT_SYNC_DEST = mlops_accidents_k3s ce qui permet d'avoir la même arborescence que sur github
   AIRFLOW__CORE__DAGS_FOLDER: "/git/mlops_accidents_k3s/deployments/airflow/dags"

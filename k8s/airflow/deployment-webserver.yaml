@@ -17,6 +17,7 @@ spec:
         app: airflow-webserver
 
     spec:
+      # Comme dans le deployment de mlflow pour s'assurer des droits identiques partout
       securityContext:
         runAsUser: 1000
         runAsGroup: 1000
@@ -65,8 +66,10 @@ spec:
               mountPath: /git
 
         - name: webserver
-
           image: accidents_severity-airflow:1.0
+          # Si absente alors on l'a récupère sur le docker hub
+          # Evolution dans un env de prod: mettre en place le sytème
+          # pour récupérer l'image
           imagePullPolicy: IfNotPresent
 
           command: ["bash", "-c"]

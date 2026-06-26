@@ -635,6 +635,8 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 	@rm -f .env
 	@rm -f k8s/airflow/.env.config
 	@rm -f k8s/airflow/.env.secret
+	@rm -f k8s/fastapi/.env.config
+	@rm -f k8s/fastapi/.env.secret
 	@echo "🛠️  Configuration de l'environnement..."
 	@echo "------------------------------------------"
 	@# Boucle tant que la saisie n'est ni 'prod' ni 'debug'
@@ -685,11 +687,16 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 	@# Ajout des variables d'export du Makefile pour utilisation direct de la commande docker compose
 	@echo "PROJECT_NAME=$$PROJECT_NAME" >> .env
 	@echo "PROJECT_NAME=$$PROJECT_NAME" >> k8s/airflow/.env.config
+	@echo "PROJECT_NAME=$$PROJECT_NAME" >> k8s/fastapi/.env.config
 	@echo "DAGSHUB_REPO_NAME=$$DAGSHUB_REPO_NAME" >> .env
 	@echo "DAGSHUB_REPO_NAME=$$DAGSHUB_REPO_NAME" >> k8s/airflow/.env.config
+	@echo "DAGSHUB_REPO_NAME=$$DAGSHUB_REPO_NAME" >> k8s/fastapi/.env.config
 	@echo "DAGSHUB_USER=$(DAGSHUB_USER)" >> k8s/airflow/.env.secret
 	@echo "DAGSHUB_S3_ACCESS_KEY_ID=$(DAGSHUB_S3_ACCESS_KEY_ID)" >> k8s/airflow/.env.secret
 	@echo "DAGSHUB_S3_SECRET_ACCESS_KEY=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/airflow/.env.secret
+	@echo "DAGSHUB_USER=$(DAGSHUB_USER)" >> k8s/fastapi/.env.secret
+	@echo "DAGSHUB_S3_ACCESS_KEY_ID=$(DAGSHUB_S3_ACCESS_KEY_ID)" >> k8s/fastapi/.env.secret
+	@echo "DAGSHUB_S3_SECRET_ACCESS_KEY=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/fastapi/.env.secret
 	@echo "PROJECT_IP=$$PROJECT_IP" >> .env
 	@echo "PROJECT_IP=$$PROJECT_IP" >> .env.config
 	@echo "PATH=$$PATH" >> .env
