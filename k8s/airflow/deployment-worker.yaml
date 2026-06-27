@@ -41,25 +41,9 @@ spec:
         - name: git-sync
           image: registry.k8s.io/git-sync/git-sync:v4.1.0
 
-          env:
-            # On clone la branche mlops_accidents_k3s du repo github
-            - name: GIT_SYNC_REPO
-              value: "https://github.com/ntepal/Template_MLOps_accidents.git"
-            - name: GIT_SYNC_BRANCH
-              value: "mlops_accidents_k3s"
-            # nom du dossier en local sur la VM = /GIT_SYNC_ROOT/GIT_SYNC_DEST = le contenu de mlops_accidents_k3s
-            - name: GIT_SYNC_ROOT
-              value: "/git"
-            - name: GIT_SYNC_DEST
-              # Le répertoire de travail (la racine) est /git (défini ci-dessous dans volumeMounts)
-              # Donc GIT_SYNC_ROOT/GIT_SYNC_DEST contient le contenu de la branche GIT_SYNC_BRANCH
-              # Indispensable en cas de multi-branche car ainsi, chaque repo a son contexte protégé
-              # Sans le repo, les contextes peuvent se percuter et générer des conflits
-              # Mais même utile avec un seul repo pour avoir la logique de l'arborescence
-              value: "mlops_accidents_k3s"
-            # Resynchronise toutes les x secondes
-            - name: GIT_SYNC_WAIT
-              value: "30"
+          envFrom:
+            - configMapRef:
+              name: airflow-gitsync-config
 
           volumeMounts:
             - name: airflow-git-repo

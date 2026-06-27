@@ -1,10 +1,18 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+# NB: les xxxGenerator ne peuvent pas cohabiter avec configmap et secret
+# Ils sont préférés au fichiers configmap.yaml et secret.yaml construits manuellement
+# Le .env.config contient la partie du fichier .env en excluant les données sensibles
+# Ls données sensibles sont mises dans .env.secret par le Makefile
 configMapGenerator:
   - name: airflow-config
     envs:
       - .env.config
+
+  - name: airflow-gitsync-config
+    envs:
+      - .env.config.gitsync
 
 secretGenerator:
   - name: airflow-secret
@@ -13,8 +21,6 @@ secretGenerator:
 
 resources:
   - service.yaml
-  - configmap.yaml
-  - secret.yaml
   - init-job.yaml
   - pvc-logs.yaml
   - deployment-webserver.yaml

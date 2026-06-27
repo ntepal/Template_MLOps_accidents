@@ -46,39 +46,12 @@ spec:
           ports:
             - containerPort: 8000
 
-          env:
-            - name: MLFLOW_TRACKING_URI
-              value: "http://mlflow:5000"
+          envFrom:
+            - configMapRef:
+              name: fastapi-config
 
-            - name: UV_LINK_MODE
-              value: "copy"
-
-            - name: GIT_PYTHON_REFRESH
-              value: "quiet"
-
-            - name: DAGSHUB_REPO_NAME
-              valueFrom:
-                configMapKeyRef:
-                  name: api-config
-                  key: DAGSHUB_REPO_NAME
-
-            - name: DAGSHUB_USER
-              valueFrom:
-                configMapKeyRef:
-                  name: api-config
-                  key: DAGSHUB_USER
-
-            - name: AWS_ACCESS_KEY_ID
-              valueFrom:
-                secretKeyRef:
-                  name: api-secret
-                  key: AWS_ACCESS_KEY_ID
-
-            - name: AWS_SECRET_ACCESS_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: api-secret
-                  key: AWS_SECRET_ACCESS_KEY
+            - secretRef:
+              name: fastapi-secret
 
           readinessProbe:
             httpGet:

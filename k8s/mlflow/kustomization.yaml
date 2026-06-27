@@ -4,4 +4,4 @@ kind: Kustomization
 resources:
   - service.yaml
   - pvc-models.yaml
-  - deployment-mlflow.yaml
+  - deployment.yaml
