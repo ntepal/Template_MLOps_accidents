@@ -636,6 +636,7 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 	@rm -f k8s/airflow/.env.secret
 	@rm -f k8s/fastapi/.env.secret
 	@rm -f k8s/grafana/.env.config
+	@rm -f k8s/evidently/.env.config
 	@echo "🛠️  Configuration de l'environnement..."
 	@echo "------------------------------------------"
 	@# Boucle tant que la saisie n'est ni 'prod' ni 'debug'
@@ -687,6 +688,7 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 
 	@# Ajout des variables d'export du Makefile pour utilisation direct de la commande docker compose
 	@echo "PROJECT_NAME=$$PROJECT_NAME" >> .env
+	@echo "PROJECT_NAME=$$PROJECT_NAME" >> k8s/evidently/.env.config
 	@echo "DAGSHUB_REPO_NAME=$$DAGSHUB_REPO_NAME" >> .env
 	@echo "DAGSHUB_USER=$(DAGSHUB_USER)" >> k8s/airflow/.env.secret
 	@echo "DAGSHUB_S3_ACCESS_KEY_ID=$(DAGSHUB_S3_ACCESS_KEY_ID)" >> k8s/airflow/.env.secret
@@ -705,8 +707,12 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 	@echo "MLFLOW_TRACKING_URI=$$MLFLOW_TRACKING_URI" >> .env
 	@echo "DOCKER_MLFLOW_TRACKING_URI=$$DOCKER_MLFLOW_TRACKING_URI" >> .env
 	@echo "EVIDENTLY_PATH=$$EVIDENTLY_PATH" >> .env
+	@echo "EVIDENTLY_PATH=$$EVIDENTLY_PATH" >> k8s/evidently/.env.config
 	@echo "WORKSPACE_NAME=$$WORKSPACE_NAME" >> .env
 	@echo "EVIDENTLY_WORKSPACE=$$EVIDENTLY_WORKSPACE" >> .env
+	@echo "EVIDENTLY_WORKSPACE=$$EVIDENTLY_WORKSPACE" >> k8s/evidently/.env.config
+	@echo "LOG_LEVEL=INFO" >> k8s/evidently/.env.config
+	@echo "MONITOR_DAEMON_TIMER=30" >> k8s/evidently/.env.config
 	@# on génère le grafana .env.config car il y a les variables
 	@echo "GF_SERVER_SERVE_FROM_SUB_PATH=true" >> k8s/grafana/.env.config
 	@echo "GF_WEBHOOK_URL=https://webhook.site/85262e74-bee6-4a52-9b9c-299f1208c67d" >> k8s/grafana/.env.config

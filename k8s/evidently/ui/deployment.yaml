@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: evidently-ui
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: evidently-ui
+
+  template:
+    metadata:
+      labels:
+        app: evidently-ui
+
+    spec:
+      containers:
+        - name: evidently-ui
+          image: evidently-ui:1.0
+          imagePullPolicy: IfNotPresent
+
+          command:
+            - evidently
+            - ui
+            - --workspace
+            - /workspace
+            - --port
+            - "8000"
+            - --host
+            - "0.0.0.0"
+
+          ports:
+            - containerPort: 8000
+
+          envFrom:
+            - configMapRef:
+                name: evidently-config
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+
+      volumes:
+        - name: workspace
+          persistentVolumeClaim:
+            claimName: evidently-pvc

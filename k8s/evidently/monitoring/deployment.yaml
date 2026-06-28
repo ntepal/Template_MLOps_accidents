@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: evidently-monitoring
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: evidently-monitoring
+
+  template:
+    metadata:
+      labels:
+        app: evidently-monitoring
+
+    spec:
+      containers:
+        - name: monitoring
+          image: evidently-ui:1.0
+
+          command:
+            - python3
+            - src/monitoring/evidently_monitor_daemon.py
+
+          envFrom:
+            - configMapRef:
+                name: evidently-config
+
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+
+      volumes:
+        - name: workspace
+          persistentVolumeClaim:
+            claimName: evidently-pvc
