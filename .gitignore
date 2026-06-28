@@ -62,7 +62,8 @@ target/
 # DotEnv configuration
 .env
 .env.secret
-.env.config
+# Je veux que le config apparaisse car il n'est pas généré par le Makefile
+#.env.config
 
 # Database
 *.db

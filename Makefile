@@ -635,6 +635,7 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 	@rm -f .env
 	@rm -f k8s/airflow/.env.secret
 	@rm -f k8s/fastapi/.env.secret
+	@rm -f k8s/grafana/.env.config
 	@echo "🛠️  Configuration de l'environnement..."
 	@echo "------------------------------------------"
 	@# Boucle tant que la saisie n'est ni 'prod' ni 'debug'
@@ -672,6 +673,7 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 		echo "NGINX_PORT_OUT=80" >> .env; \
 		echo "NGINX_PORT_IN=80" >> .env; \
 		echo "NGINX_CONF_FILE=nginx_debug.conf" >> .env; \
+		echo "GF_SERVER_ROOT_URL=http://$$PROJECT_IP/grafana/" > k8s/grafana/.env.config; \
 		echo "✅ Mode DEBUG configuré (Port 80, Conf HTTP)"; \
 	else \
 		echo "NGINX_MODE=prod" >> .env; \
@@ -679,6 +681,7 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 		echo "NGINX_PORT_OUT=443" >> .env; \
 		echo "NGINX_PORT_IN=443" >> .env; \
 		echo "NGINX_CONF_FILE=nginx.conf" >> .env; \
+		echo "GF_SERVER_ROOT_URL=https://$$PROJECT_IP/grafana/" > k8s/grafana/.env.config; \
 		echo "✅ Mode PROD configuré (Port 443, Conf SSL/HTTPS)"; \
 	fi
 
@@ -690,7 +693,7 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 	@echo "DAGSHUB_S3_SECRET_ACCESS_KEY=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/airflow/.env.secret
 	@echo "MLFLOW_TRACKING_USERNAME=$(DAGSHUB_USER)" >> k8s/airflow/.env.secret
 	@echo "MLFLOW_TRACKING_PASSWORD=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/airflow/.env.secret
-	@echo "DAGSHUB_USER=$(DAGSHUB_USER)" >> k8s/fastapi/.env.secret
+	@echo "DAGSHUB_USER=$(DAGSHUB_USER)" > k8s/fastapi/.env.secret
 	@echo "DAGSHUB_S3_ACCESS_KEY_ID=$(DAGSHUB_S3_ACCESS_KEY_ID)" >> k8s/fastapi/.env.secret
 	@echo "DAGSHUB_S3_SECRET_ACCESS_KEY=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/fastapi/.env.secret
 	@echo "PROJECT_IP=$$PROJECT_IP" >> .env
@@ -704,6 +707,9 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 	@echo "EVIDENTLY_PATH=$$EVIDENTLY_PATH" >> .env
 	@echo "WORKSPACE_NAME=$$WORKSPACE_NAME" >> .env
 	@echo "EVIDENTLY_WORKSPACE=$$EVIDENTLY_WORKSPACE" >> .env
+	@# on génère le grafana .env.config car il y a les variables
+	@echo "GF_SERVER_SERVE_FROM_SUB_PATH=true" >> k8s/grafana/.env.config
+	@echo "GF_WEBHOOK_URL=https://webhook.site/85262e74-bee6-4a52-9b9c-299f1208c67d" >> k8s/grafana/.env.config
 
 	@echo "------------------------------------------"
 	@echo "📝 Fichier .env généré avec succès !"

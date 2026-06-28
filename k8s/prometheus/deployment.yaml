@@ -17,6 +17,8 @@ spec:
       containers:
         - name: prometheus
           image: prom/prometheus:v2.51.2
+          # Présent mais c'est la valeur par défaut car l'image demandé n'est pas latest
+          imagePullPolicy: IfNotPresent
 
           args:
             - --config.file=/etc/prometheus/prometheus.yml
