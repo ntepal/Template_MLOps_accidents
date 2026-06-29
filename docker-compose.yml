@@ -456,6 +456,9 @@ services:
       test: ["CMD", "curl", "--fail", "http://localhost:5555/flower/"]
     restart: always
 
+  # Au final, il servait au début quand je lançais les commandes manuellement pour des test
+  # Mais avec le airflow + dvc.yaml + dags, il ne sert à plus rien, d'autant que l'image
+  # utilisé dans les dockersOperators est l'image runner définie dans le Dockerfile à la racine
   train:
     build:
       context: .                        # . pour répertoire courant du .yml (la racine)

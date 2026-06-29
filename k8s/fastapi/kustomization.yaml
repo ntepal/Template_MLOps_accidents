@@ -1,6 +1,17 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+# Le name du Generator contient la racine fournie plus l'extension hash -xxxx
+# Ainsi, dès qu'une modification est faite dans le .env.config ou .env.secret,
+# comme le hash change, le/les pods concernés sot automatiquement réinitialisés
+# L'inconvénient est qu'on peut seulement les utiliser dans les autres répertoires
+# avec name-hash. Avec cette option, on disable le hash et ainsi on peut l'utiliser
+# partour dans le projet. L'inconvénient est que si modifie le config ou secret,
+# on doit réinitialiser manuellement. Mais au moins on sait que la modification
+# sera vu de tous après le reset de tous les pods
+generatorOptions:
+  disableNameSuffixHash: true
+
 configMapGenerator:
   - name: fastapi-config
     envs:
@@ -12,5 +23,5 @@ secretGenerator:
       - .env.secret
 
 resources:
-  - service-fastapi.yaml
-  - deployment-fastapi.yaml
+  - service.yaml
+  - deployment.yaml

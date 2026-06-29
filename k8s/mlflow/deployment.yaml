@@ -42,7 +42,9 @@ spec:
 
       initContainers:
         - name: wait-for-postgres
-          image: postgres:16
+          image: postgres:16.13-trixie
+          imagePullPolicy: IfNotPresent
+
           command:
             - sh
             - -c

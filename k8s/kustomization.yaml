@@ -9,3 +9,12 @@ resources:
   - postgres
   - redis
   - mlflow
+  - airflow
+  - jobs
+  - fastapi
+  - prometheus
+  - grafana
+  - node-exporter
+  - cadvisor
+  - evidently
+  - ingress

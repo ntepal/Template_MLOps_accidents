@@ -22,7 +22,9 @@ spec:
         # On ne met pas -U airflow dans le until car il n'est pas encore créé
         # C'est justement le init-job qui le crée
         - name: wait-for-postgres
-          image: postgres:16
+          image: postgres:16.13-trixie
+          imagePullPolicy: IfNotPresent
+
           command:
             - sh
             - -c
@@ -36,6 +38,7 @@ spec:
       containers:
         - name: airflow-init
           image: accidents_severity-airflow:1.0
+          imagePullPolicy: IfNotPresent
 
           command: ["bash", "-c"]
           args:
@@ -51,10 +54,10 @@ spec:
 
               echo "🚀 Creating admin user (if not exists)..."
               # Cherche si l'utilisateur (w: match uniquement le mot exact) existe déjà dans la liste
-              if ! airflow users list | grep -qw "$AIRFLOW_WWW_USER_USERNAME"; then
+              if ! airflow users list | grep -qw "$_AIRFLOW_WWW_USER_USERNAME"; then
                 airflow users create \
-                  --username "$AIRFLOW_WWW_USER_USERNAME" \
-                  --password "$AIRFLOW_WWW_USER_PASSWORD" \
+                  --username "$_AIRFLOW_WWW_USER_USERNAME" \
+                  --password "$_AIRFLOW_WWW_USER_PASSWORD" \
                   --firstname Admin \
                   --lastname User \
                   --role Admin \
@@ -63,12 +66,6 @@ spec:
                 echo "User already exists"
               fi
               echo "✅ Airflow init completed"
-
-          env:
-            - name: AIRFLOW_WWW_USER_USERNAME
-              value: admin
-            - name: AIRFLOW_WWW_USER_PASSWORD
-              value: admin
 
           envFrom:
             - configMapRef:

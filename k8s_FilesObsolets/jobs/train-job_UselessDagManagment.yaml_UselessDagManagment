@@ -12,6 +12,7 @@ spec:
       containers:
         - name: train
           image: accidents_severity-train:1.0
+          imagePullPolicy: IfNotPresent
 
           env:
             - name: MLFLOW_TRACKING_URI

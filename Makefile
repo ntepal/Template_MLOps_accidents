@@ -1093,6 +1093,146 @@ docker-full-start-WoInitialTrain_fast: ## [PROD][DOCKER] Démarrage simultannés
 	@echo "Vérification des volumes après le full restart"
 	@docker volume ls
 
+
+# Lancer tout l'écosystème conteneurisé sur kubernetes
+# L'option -d (--detach) pour le faire tourner en tâche de fond (daemon mode)
+k8s-start: ## [PROD][DOCKER] Démarrage simultanés des services Postgres et Redis, puis Airflow-Init et enfin tous les autres sans Initial Train
+	@# Sécurité et Infrastructure
+	@sudo chmod a+rw /var/run/docker.sock
+	@# Verifier que ce port n'est pas utilisé dans les tables de routage
+	@##$(MAKE) -s docker_check_port_routage
+	@# Vérifier que ce port n'est pas déjà ouvert
+	@##$(MAKE) -s docker_check_port_free
+	@##$(MAKE) -s docker_ssl_prep
+	@##$(MAKE) -s setup-permissions
+
+	@echo ""
+	@echo "======================================================================"
+	@echo "💡 GARANTIR DE REJOUER UNE SIMULATION COMPLèTE DU CALCUL DES MODèLES"
+	@$(MAKE) -s docker-reset-for-full-simu
+	@echo "======================================================================"
+	@echo ""
+
+	@# Au cas où l'install n'a pas été exécuté
+	@mkdir -p reports
+	@mkdir -p logs
+
+	@# création du répertoire data pour les raw et processes data (csv)
+	@# Pour Evidently, création de data/users, data/evidently/...
+	@# On le supprime
+	@sudo rm -rf data
+	@# On crée le répertoire data
+	@mkdir -p data
+	@# Et ses sous-répertoires pour Evidently
+	@mkdir -p $(DATA_EVIDENTLY_VM_DIRS)
+	@# On donne la propriéte
+	@##sudo chown -R $(USER_ID):$(GROUP_ID) data/
+	@# On donne les droits
+	@##sudo chmod -R 775 data/
+
+	@# On crée le fichier s'il n'existe pas
+	@touch dvc.lock
+	@# Si le fichier est vide (taille 0), on injecte le template minimal
+	@if [ ! -s dvc.lock ]; then \
+		echo "schema: '2.0'" > dvc.lock; \
+		echo "stages: {}" >> dvc.lock; \
+		echo "✅ dvc.lock était vide, initialisé avec le schéma 2.0"; \
+	else \
+		echo "ℹ️ dvc.lock contient déjà des données, on ne touche à rien"; \
+	fi
+
+	@echo ""
+	@echo "🚀 Déploiement des services"
+
+	@# Injection de l'année dans params.yaml. Utilisé dans dvc.yaml pour stage import
+	@# Ensuite, le dag airflow met à jour l'année via la variable settée dans le webserver Airflow
+	@echo "TRAIN_YEAR: 2019" > params.yaml
+	@echo "✅ params.yaml initialisé avec TRAIN_YEAR: 2019 ==================="
+
+	@echo ""
+	@echo "🗑️ Suppression namespace et donc aussi de tous les services et dabases kubernetes"
+	kubectl delete namespace accidents-severity || true
+	kubectl wait --for=delete namespace/accidents-severity --timeout=120s || true
+
+	@echo ""
+	@echo "🚀 Déploiement..."
+	kubectl apply -k k8s/
+
+	@echo ""
+	@echo "⏳ Jobs critiques..."
+	kubectl wait job/create-mlflow-db -n accidents-severity --for=condition=complete --timeout=300s || true
+	kubectl wait job/airflow-init -n accidents-severity --for=condition=complete --timeout=600s || true
+        @echo ""
+        @echo "======================================================================"
+        @echo "TRAIN_YEAR créé et initialisé à 2019 dans Admin/Variable du Webserver"
+        @# Dans le service airflow-worker, on utilise l'outil airflow (CLI) et on
+        @# lance la commande variables set pour créer TRAIN_YEAR et l'initialisé à 2019
+        kubectl wait job/airflow-set-variables -n accidents-severity --for=condition=complete --timeout=600s || true
+        @echo "======================================================================"
+
+	@echo ""
+	@echo "⏳ Apps..."
+	@#kubectl wait --for=condition=ready pod -l app=fastapi -n accidents-severity --timeout=300s || true
+	@#kubectl wait --for=condition=ready pod -l app=mlflow -n accidents-severity --timeout=300s || true
+	@#kubectl wait --for=condition=ready pod -l app=airflow-webserver -n accidents-severity --timeout=600s || true
+	@# Mieux car vérifie le Deployment, les ReplicaSets, que tous les pods sont stables, que le rollout est terminé
+	kubectl rollout status deployment/fastapi -n accidents-severity --timeout=300s
+	kubectl rollout status deployment/mlflow -n accidents-severity --timeout=300s
+	kubectl rollout status deployment/airflow-webserver -n accidents-severity --timeout=600s
+
+	@echo ""
+	@echo "📡 Ingress..."
+	kubectl get ingress -n accidents-severity
+
+	@echo ""
+	@echo "🚀 Cluster ready"
+
+	@echo ""
+	@echo "Vue debug si nécessaire cmd: kubectl describe pod <pod>"
+	@echo "Vue log si nécessaire cmd: kubectl logs deployment/xxxx -n accidents-severity"
+
+	@echo ""
+	@echo "🥈 Vue complète pour vérification visuelle"
+	@watch kubectl get all -n accidents-severity
+
+	@echo ""
+	@# Lire le port dans le .env
+	@# On vérifie d'abord si le fichier existe avec [ -f .env ]
+	@if [ -f .env ]; then \
+		export $$(grep -v '^#' .env | xargs) && \
+		if [ "$$NGINX_PORT_OUT" = "443" ]; then \
+			echo "------------------------------------------------------------------------------------"; \
+			echo "💡 POUR MACHINE DISTANTE - MODE SECURISE (HTTPS) - SERVICES ACCESSIBLES (VIA NGINX):"; \
+			echo "👉 API Principale          : https://<IP_VM>/api/"; \
+			echo "👉 SWAGGER (Doc)           : https://<IP_VM>/api/docs"; \
+			echo "👉 MLflow UI               : https://<IP_VM>/mlflow/"; \
+			echo "👉 Airflow (Orchestrateur) : https://<IP_VM>/airflow/"; \
+			echo "👉 Airflow (Orchestrateur) : https://<IP_VM>/flower/"; \
+			echo "👉 Prometheus              : https://<IP_VM>/prometheus/"; \
+			echo "👉 Grafana                 : https://<IP_VM>/grafana/"; \
+			echo "👉 Evidently               : https://<IP_VM>/"; \
+			echo "------------------------------------------------------------------------------------"; \
+		else \
+			echo "------------------------------------------------------------------------------------"; \
+			echo "💡 POUR MACHINE DISTANTE - MODE NON SECURISE - SERVICES ACCESSIBLES (VIA NGINX):"; \
+			echo "👉 API Principale          : http://<IP_VM>/api/"; \
+			echo "👉 SWAGGER (Doc)           : http://<IP_VM>/api/docs"; \
+			echo "👉 MLflow UI               : http://<IP_VM>/mlflow/"; \
+			echo "👉 Airflow (Orchestrateur) : http://<IP_VM>/airflow/"; \
+			echo "👉 Airflow (Orchestrateur) : http://<IP_VM>/flower/"; \
+			echo "👉 Prometheus              : http://<IP_VM>/prometheus/"; \
+			echo "👉 Grafana                 : http://<IP_VM>/grafana/"; \
+			echo "👉 Evidently               : http://<IP_VM>/"; \
+			echo "------------------------------------------------------------------------------------"; \
+		fi \
+	else \
+		echo "⚠️ Attention : Aucun fichier .env trouvé. FAIRE D'ABORD LA CREATION D'IMAGE."; \
+	fi
+
+	@echo ""
+	@echo "Vérification des volumes après le full restart"
+	@docker volume ls
+
 drift-on: ## [PROD][DOCKER] Modifier le fastapi_data.csv pour activer le drift dans EVIDENTLY et générer l'alarme dans GRAFANA
 	@echo "Sauvegarder le fastapi_data.csv"
 	@sudo cp data/users/fastapi_data.csv data/users/fastapi_data_backup.csv

@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: airflow-set-variables
+  namespace: accidents-severity
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+
+      containers:
+        - name: airflow-cli
+          image: accidents_severity-airflow:1.0
+          imagePullPolicy: IfNotPresent
+
+          command: ["bash", "-c"]
+          args:
+            - |
+              airflow variables set TRAIN_YEAR 2019
+          envFrom:
+            - configMapRef:
+                name: airflow-config

@@ -28,6 +28,8 @@ spec:
         # Attendre MLflow (car API charge les modèles)
         - name: wait-for-mlflow
           image: busybox
+          imagePullPolicy: IfNotPresent
+
           command:
             - sh
             - -c
