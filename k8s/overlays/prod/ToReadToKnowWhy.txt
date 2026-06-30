@@ -1,0 +1,3 @@
+# NB A LIRE
+# Sert pour le déploiement en cas de modif
+# A vérifier par la suite comment bien l'utiliser

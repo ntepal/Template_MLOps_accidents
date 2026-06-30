@@ -15,7 +15,7 @@ SHELL := /bin/bash
 .PHONY: setup-ci quality push
 .PHONY: docker_prod_or_debug docker-FullClean-full-build
 .PHONY: docker_service_full_check-health docker_check_port_routage docker_check_port_free docker_ssl_prep docker-reset-for-full-simu
-.PHONY: docker-full-start-WoInitialTrain_fast
+.PHONY: docker-full-start-WoInitialTrain_fast kubernetes-start
 .PHONY: drift-on drift-off
 .PHONY: docker-stop docker-down docker-status
 .PHONY: ubuntu_usage docker-disks-storage docker-shell-mlflow docker-shell-postgres db-psql-postgres-data db-psql-postgres-disk
@@ -1096,7 +1096,7 @@ docker-full-start-WoInitialTrain_fast: ## [PROD][DOCKER] Démarrage simultannés
 
 # Lancer tout l'écosystème conteneurisé sur kubernetes
 # L'option -d (--detach) pour le faire tourner en tâche de fond (daemon mode)
-k8s-start: ## [PROD][DOCKER] Démarrage simultanés des services Postgres et Redis, puis Airflow-Init et enfin tous les autres sans Initial Train
+kubernetes-start: ## [PROD][DOCKER] Démarrage simultanés des services Postgres et Redis, puis Airflow-Init et enfin tous les autres sans Initial Train
 	@# Sécurité et Infrastructure
 	@sudo chmod a+rw /var/run/docker.sock
 	@# Verifier que ce port n'est pas utilisé dans les tables de routage

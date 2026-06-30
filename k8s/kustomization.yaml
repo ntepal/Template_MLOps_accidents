@@ -6,15 +6,15 @@ namespace: accidents-severity
 
 resources:
   - namespace.yaml
-  - postgres
-  - redis
-  - mlflow
-  - airflow
-  - jobs
-  - fastapi
-  - prometheus
-  - grafana
-  - node-exporter
-  - cadvisor
-  - evidently
-  - ingress
+  - base/postgres
+  - base/redis
+  - base/mlflow
+  - base/airflow
+  - base/jobs
+  - base/fastapi
+  - base/prometheus
+  - base/grafana
+  - base/node-exporter
+  - base/cadvisor
+  - base/evidently
+  - base/ingress
