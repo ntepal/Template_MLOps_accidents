@@ -46,7 +46,7 @@ spec:
 
           envFrom:
             - configMapRef:
-              name: airflow-gitsync-config
+                name: airflow-gitsync-config
 
           volumeMounts:
             - name: airflow-git-repo

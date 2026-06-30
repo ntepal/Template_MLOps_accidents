@@ -15,11 +15,11 @@ generatorOptions:
 configMapGenerator:
   - name: prometheus-config
     files:
-      - prometheus.yml=../../monitoring/prometheus/prometheus.yml
+      - prometheus.yml
 
   - name: prometheus-rules
     files:
-      - alert_rules.yml=../../monitoring/prometheus/rules/alert_rules.yml
+      - rules/alert_rules.yml
 
 resources:
   - deployment.yaml

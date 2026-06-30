@@ -78,5 +78,11 @@ spec:
             name: grafana-alerting
 
         - name: grafana-dashboards
-          configMap:
-            name: grafana-dashboards
+          hostPath:
+            path: /home/ubuntu/Template_MLOps_accidents/k8s/base/grafana/dashboards_json
+
+        # configMap supprimé dans le kustomization.yam et remplacé par ci-dessus
+        #- name: grafana-dashboards
+        #  configMap:
+        #    name: grafana-dashboards
+

@@ -50,10 +50,10 @@ spec:
 
           envFrom:
             - configMapRef:
-              name: fastapi-config
+                name: fastapi-config
 
             - secretRef:
-              name: fastapi-secret
+                name: fastapi-secret
 
           readinessProbe:
             httpGet:
