@@ -1162,13 +1162,13 @@ k8s-start: ## [PROD][DOCKER] Démarrage simultanés des services Postgres et Red
 	@echo "⏳ Jobs critiques..."
 	kubectl wait job/create-mlflow-db -n accidents-severity --for=condition=complete --timeout=300s || true
 	kubectl wait job/airflow-init -n accidents-severity --for=condition=complete --timeout=600s || true
-        @echo ""
-        @echo "======================================================================"
-        @echo "TRAIN_YEAR créé et initialisé à 2019 dans Admin/Variable du Webserver"
-        @# Dans le service airflow-worker, on utilise l'outil airflow (CLI) et on
-        @# lance la commande variables set pour créer TRAIN_YEAR et l'initialisé à 2019
-        kubectl wait job/airflow-set-variables -n accidents-severity --for=condition=complete --timeout=600s || true
-        @echo "======================================================================"
+	@echo ""
+	@echo "======================================================================"
+	@echo "TRAIN_YEAR créé et initialisé à 2019 dans Admin/Variable du Webserver"
+	@# Dans le service airflow-worker, on utilise l'outil airflow (CLI) et on
+	@# lance la commande variables set pour créer TRAIN_YEAR et l'initialisé à 2019
+	kubectl wait job/airflow-set-variables -n accidents-severity --for=condition=complete --timeout=600s || true
+	@echo "======================================================================"
 
 	@echo ""
 	@echo "⏳ Apps..."
