@@ -82,6 +82,40 @@ helm upgrade --install cert-manager jetstack/cert-manager \
   > logs/cert-manager.log 2>&1
 echo "✅ cert-manager installé avec succès"
 
+echo ""
+echo "📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌"
+echo "---------- IMPORTANT VM=24GO DONC REDUIRE AU MAX LA CONSO LONGHORN / REPLICA... -----------"
+echo "📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌"
+echo ""
+echo "🟢 CONFIGURATION LONGHORN OPTIMISÉE (VM 24GB)"
+echo "👉 Réduction replicas : 3 → 1"
+kubectl -n longhorn-system patch settings.longhorn.io default-replica-count \
+  --type merge \
+  -p '{"value":"1"}'
+echo "✅ Longhorn replica count set to 1"
+
+echo ""
+echo "👉 Limiter l’over-provisioning (TRÈS IMPORTANT)"
+kubectl -n longhorn-system patch settings.longhorn.io storage-over-provisioning-percentage \
+  --type merge \
+  -p '{"value":"100"}'
+
+echo ""
+echo "👉 Réduire déchets snapshots (optionnel mais utile)"
+kubectl -n longhorn-system patch settings.longhorn.io snapshot-max-count \
+  --type merge \
+  -p '{"value":"5"}'
+
+echo ""
+echo "👉 Réduire replicas sur TOUS les volumes existants"
+for v in $(kubectl get volumes.longhorn.io -n longhorn-system -o jsonpath='{.items[*].metadata.name}'); do
+  echo "➡️ Patch volume $v"
+  kubectl -n longhorn-system patch volumes.longhorn.io "$v" \
+    --type merge \
+    -p '{"spec":{"numberOfReplicas":1}}' || true
+done
+echo "📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌"
+
 # Vérification
 echo "👉👉👉 cmd: kubectl get pods -n cert-manager  ==> on doit voir cert-manager, cert-manager-cainjector et cert-manager-webhook dans l'état running"
 kubectl get pods -n cert-manager
@@ -89,7 +123,7 @@ echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 echo ""
 echo "///////////////////////////////////////////////////////////////////////////////////////////"
-echo "---------- INSTALLATION Longhorn"
+echo "--------------------- INSTALLATION LONGHORN UTILE POUR LES PVC ----------------------------"
 echo "///////////////////////////////////////////////////////////////////////////////////////////"
 
 echo ""
