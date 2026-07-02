@@ -161,6 +161,12 @@ DEPENDANT_SERVICES_REGEX = $(shell echo "$(DEPENDANT_SERVICES)" | tr ' ' '|')
 # Nombre de web services
 DEPENDANT_SERVICES_NUM = $(words $(DEPENDANT_SERVICES))
 
+
+# ====================================================
+# UTILISER POUR CREER LES IMAGES KUBERNETES
+# ====================================================
+K8S_LOCAL_IMGS = runner airflow mlflow evidently api
+
 # =====================================
 # --- LISTE DES COMMANDES AVEC MAKE ---
 # =====================================
@@ -787,6 +793,95 @@ docker-FullClean-full-build: ## [PROD][DOCKER] Reset TOTAL (Volumes/Images/Cache
 	@echo "🚀 IMAGES ACTUELLES DU PROJET :"
 	@# docker images --filter "reference=accident-severity-*"
 	@docker images | grep -E "$(PROJECT_NAME)|postgres"
+	@echo "------------------------------------------------------------------------------------"
+	@echo ""
+	@echo "Vérification de la RAM utilisée"
+	@free -h
+	@echo ""
+	@echo "Vérification du DISK utilisée"
+	@df -h
+	@echo ""
+	@echo "Vérification des volumes après le build"
+	@docker volume ls
+
+# Cible pour construire et migrer une image spécifique
+# Usage : make migrate-image IMG=runner
+kubernetes-migrate-image:
+	@echo "--- Traitement de $(IMG) ---"
+	@# Build avec logs
+	@docker build --no-cache -t accidents_severity-$(IMG):1.0 . > logs/build_$(IMG).log 2>&1 || { \
+		echo "==============================================================="; \
+		echo "❌ DOCKER BUILD FAILED pour $(IMG)"; \
+		echo "👉 Vérifiez les logs : logs/build_$(IMG).log"; \
+		echo "==============================================================="; \
+		exit 1; \
+	}
+
+	@# Export/Import
+	@docker save accidents_severity-$(IMG):1.0 > $(IMG).tar
+	@sudo ctr -n k8s.io images import $(IMG).tar || { echo "❌ Import K8s failed"; exit 1; }
+
+	@# Nettoyage
+	@rm $(IMG).tar
+	@docker rmi -f accidents_severity-$(IMG):1.0 > /dev/null 2>&1
+	@docker system prune -a -f --volumes > /dev/null 2>&1
+	@docker builder prune -a -f > /dev/null 2>&1
+	@echo "✅ $(IMG) migré avec succès."
+	@echo "Espace disque restant :"
+	@df -h / | grep /
+
+kubernetes-FullClean-full-build: ## [PROD][DOCKER] Reset TOTAL (Volumes/Images/Cache) ET NETTOYAGE DISK - Construction de toutes les images avec réinstallation systématique
+	@echo "CONFIGURATION EN MODE PRODUCTION (SÉCURISÉ) OU DEBUG (NON SÉCURISÉ)..."
+	@# Le choix du mode détermine le port à utiliser
+	@$(MAKE) -s docker_prod_or_debug
+
+	@echo "🛑 Arrêt et suppression des tous les conteneurs et volumes et orphelins existants..."
+	@docker compose down --volumes --remove-orphans
+
+	@echo "☢️ RESET TOTAL : Suppression de TOUS les conteneurs restants (actifs ou orphelins)..."
+	@# C'est équivalent à dire: xarg=docker ps -aq;
+	@# si xargs n'est pas vide (-r) alors faire docker rm -f xargs > /dev/null 2>&1
+	@docker ps -aq | xargs -r docker rm -f > /dev/null 2>&1
+
+	@echo "🧹 Nettoyage du disque en cours (attente de libération d'espace). Plusieurs secondes..."
+	@echo "🧹 Nettoyage complet (Cache BuildKit + Système)..."
+	@# On vide le cache de construction
+	@docker builder prune -a --force > /dev/null 2>&1
+	@# On vide tout le reste (Images, conteneurs, volumes inutilisés)
+	@docker system prune -a --volumes --force > /dev/null 2>&1
+	@echo "✅ Espace disque et cache BuildKit réinitialisés."
+
+	@echo "Vérification que les volumes sont tous supprimés"
+	@docker volume ls
+
+	@echo "🗑️ Nettoyage des fichiers locaux..."
+	@sudo rm -rf models/*
+
+	@# On crée le répertoire si absent avec .gitkeep à l'intérieur
+	@mkdir -p models
+	@touch models/.gitkeep
+
+	@# Vérification / Création du répertoire data au cas où suppression par inadvertance
+	@# Création du répertoire data pour les raw et processes data (csv)
+	@# Besoin de le créer car utilisé dans le dag pour monter le volume associé
+	@# (donc avant le import_raw_data.py qui le crée si absent)
+	@mkdir -p data
+
+	@echo "🔥 Reconstruction totale de zéro..."
+	@echo "⏳ Cela peut prendre plusieurs dizaines de secondes"
+	@echo "Fichier de logs stocké dans logs/build.log (à partir de la racine)"
+	@# --no-cache: ignorer le cache donc tout reconstruire
+	@mkdir -p logs
+	@echo "Lancement de la migration séquentielle..."
+	@# On boucle sur la liste des images
+	@for img in $(K8S_LOCAL_IMGS); do \
+		$(MAKE) migrate-image IMG=$$img || exit 1; \
+	done
+	@echo "🔥 Reconstruction totale terminée."
+	@echo "🚀 Toute la flotte est migrée vers Kubernetes !"
+	@echo "------------------------------------------------------------------------------------"
+	@echo "✅ IMAGES ACTUELLES DU PROJET DANS KUBERNETES (avec taille) :"
+	@sudo crictl images | grep "$(PROJECT_NAME)" | awk '{print $$1, $$2, $$4, $$5}'
 	@echo "------------------------------------------------------------------------------------"
 	@echo ""
 	@echo "Vérification de la RAM utilisée"
