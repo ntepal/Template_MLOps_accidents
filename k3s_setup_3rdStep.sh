@@ -234,7 +234,8 @@ fi
 echo ""
 echo "👉 Réduire le nombre de replicas de l'interface Longhorn (VM légère)"
 kubectl -n longhorn-system scale deployment longhorn-ui --replicas=1
-
+echo "👉 Attente de la fin du rollout..."
+kubectl -n longhorn-system rollout status deploy/longhorn-ui --timeout=300s
 echo "👉 Vérification du nombre de replicas qui doit être 1"
 kubectl -n longhorn-system get deployment longhorn-ui
 
