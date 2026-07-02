@@ -82,40 +82,6 @@ helm upgrade --install cert-manager jetstack/cert-manager \
   > logs/cert-manager.log 2>&1
 echo "✅ cert-manager installé avec succès"
 
-echo ""
-echo "📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌"
-echo "---------- IMPORTANT VM=24GO DONC REDUIRE AU MAX LA CONSO LONGHORN / REPLICA... -----------"
-echo "📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌"
-echo ""
-echo "🟢 CONFIGURATION LONGHORN OPTIMISÉE (VM 24GB)"
-echo "👉 Réduction replicas : 3 → 1"
-kubectl -n longhorn-system patch settings.longhorn.io default-replica-count \
-  --type merge \
-  -p '{"value":"1"}'
-echo "✅ Longhorn replica count set to 1"
-
-echo ""
-echo "👉 Limiter l’over-provisioning (TRÈS IMPORTANT)"
-kubectl -n longhorn-system patch settings.longhorn.io storage-over-provisioning-percentage \
-  --type merge \
-  -p '{"value":"100"}'
-
-echo ""
-echo "👉 Réduire déchets snapshots (optionnel mais utile)"
-kubectl -n longhorn-system patch settings.longhorn.io snapshot-max-count \
-  --type merge \
-  -p '{"value":"5"}'
-
-echo ""
-echo "👉 Réduire replicas sur TOUS les volumes existants"
-for v in $(kubectl get volumes.longhorn.io -n longhorn-system -o jsonpath='{.items[*].metadata.name}'); do
-  echo "➡️ Patch volume $v"
-  kubectl -n longhorn-system patch volumes.longhorn.io "$v" \
-    --type merge \
-    -p '{"spec":{"numberOfReplicas":1}}' || true
-done
-echo "📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌"
-
 # Vérification
 echo "👉👉👉 cmd: kubectl get pods -n cert-manager  ==> on doit voir cert-manager, cert-manager-cainjector et cert-manager-webhook dans l'état running"
 kubectl get pods -n cert-manager
@@ -199,6 +165,11 @@ echo ""
 echo "📌📌📌 On attend que les pods Longhorn soient ready..."
 echo "👉👉👉 cmd: kubectl wait --for=condition=ready pod -n longhorn-system --all --timeout=900s"
 kubectl wait --for=condition=ready pod -n longhorn-system --all --timeout=900s
+echo ""
+echo "📌📌📌 Vérification des settings Longhorn..."
+echo "👉👉👉 cmd: kubectl -n longhorn-system get settings.longhorn.io >/dev/null"
+kubectl -n longhorn-system get settings.longhorn.io >/dev/null
+echo ""
 echo "📌📌📌 On check les DaemonSets..."
 kubectl get daemonset -n longhorn-system
 # On stoppe les log watcher
@@ -221,6 +192,53 @@ echo "👉👉👉 cmd: kubectl get storageclass  ==> on devrait voir longhorn (
 kubectl get storageclass
 echo "##########################################################################################"
 echo "///////////////////////////////////////////////////////////////////////////////////////////"
+
+echo ""
+echo "📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌"
+echo "---------- IMPORTANT VM=24GO DONC REDUIRE AU MAX LA CONSO LONGHORN / REPLICA... -----------"
+echo "📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌"
+echo ""
+echo "🟢 CONFIGURATION LONGHORN OPTIMISÉE (VM 24GB)"
+echo "👉 Réduction replicas : 3 → 1"
+kubectl -n longhorn-system patch settings.longhorn.io default-replica-count \
+  --type merge \
+  -p '{"value":"1"}'
+echo "✅ Longhorn replica count set to 1"
+
+echo ""
+echo "👉 Limiter l’over-provisioning (TRÈS IMPORTANT)"
+kubectl -n longhorn-system patch settings.longhorn.io storage-over-provisioning-percentage \
+  --type merge \
+  -p '{"value":"100"}'
+
+echo ""
+echo "👉 Réduire déchets snapshots (optionnel mais utile)"
+kubectl -n longhorn-system patch settings.longhorn.io snapshot-max-count \
+  --type merge \
+  -p '{"value":"5"}'
+
+echo ""
+VOLUMES=$(kubectl get volumes.longhorn.io -n longhorn-system -o jsonpath='{.items[*].metadata.name}')
+if [ -n "$VOLUMES" ]; then
+  echo "👉 Réduction des replicas des volumes existants"
+  for v in $VOLUMES; do
+    echo "➡️ Patch volume $v"
+    kubectl -n longhorn-system patch volumes.longhorn.io "$v" \
+      --type merge \
+      -p '{"spec":{"numberOfReplicas":1}}' || true
+  done
+else
+  echo "👉 Aucun volume Longhorn existant à modifier."
+fi
+
+echo ""
+echo "👉 Réduire le nombre de replicas de l'interface Longhorn (VM légère)"
+kubectl -n longhorn-system scale deployment longhorn-ui --replicas=1
+
+echo "👉 Vérification du nombre de replicas qui doit être 1"
+kubectl -n longhorn-system get deployment longhorn-ui
+
+echo "📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌"
 
 echo ""
 echo "VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV"
