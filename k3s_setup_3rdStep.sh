@@ -96,11 +96,12 @@ echo ""
 echo "*******************************************************************************************"
 echo " >>>>>>>>> Prérequis: ISCSI "
 echo "*******************************************************************************************"
-echo "📌📌📌 On stoppe tout en cas de relance pour éviter le blocage"
-sudo systemctl stop unattended-upgrades || true
-sudo systemctl stop apt-daily.service || true
-sudo systemctl stop apt-daily-upgrade.service || true
-sudo dpkg --configure -a
+echo "📌📌📌 A FAIRE APRES VM INITIALIZATION SINON çA BOUCLE AVEC ld not get lock /var/lib/dpkg/lock-frontend. It is held by process 21650 (unattended-upgr) "
+echo " ET IL N'EST PAS CONSEILLé DE TUER LE PROCESS SOUS PEINE DE CORROMPRE LE SYSTEME"
+# APT = Advanced Package Tool; système qui installe et met à jour les logiciels sur ta VM
+# ex: sudo apt update, apt install open-iscsi
+
+echo ""
 echo "👉👉👉 cmd: sudo apt update > logs/apt-update.log 2>&1"
 echo "📌📌📌 Log à partir de la racine dans logs/apt-update.log"
 # sudo apt update
