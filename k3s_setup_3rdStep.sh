@@ -96,6 +96,11 @@ echo ""
 echo "*******************************************************************************************"
 echo " >>>>>>>>> Prérequis: ISCSI "
 echo "*******************************************************************************************"
+echo "📌📌📌 On stoppe tout en cas de relance pour éviter le blocage"
+sudo systemctl stop unattended-upgrades || true
+sudo systemctl stop apt-daily.service || true
+sudo systemctl stop apt-daily-upgrade.service || true
+sudo dpkg --configure -a
 echo "👉👉👉 cmd: sudo apt update > logs/apt-update.log 2>&1"
 echo "📌📌📌 Log à partir de la racine dans logs/apt-update.log"
 # sudo apt update
@@ -238,16 +243,22 @@ echo "👉 Attente de la fin du rollout..."
 kubectl -n longhorn-system rollout status deploy/longhorn-ui --timeout=300s
 echo "👉 Vérification du nombre de replicas qui doit être 1"
 kubectl -n longhorn-system get deployment longhorn-ui
-echo "👉 Attendre que les pods Terminating aient complètement terminé avant de passer à la vérification"
-echo "👉 Attente de la fin des créations/suppressions..."
-while kubectl get pods -n longhorn-system --no-headers | \
-      grep -E "ContainerCreating|Pending|Terminating"; do
-    sleep 2
+echo ""
+echo "👉 Attente stabilisation complète Longhorn..."
+while true; do
+  NOT_READY=$(kubectl get pods -n longhorn-system --no-headers 2>/dev/null | \
+    grep -E "ContainerCreating|Pending|Terminating|Init:|CrashLoopBackOff" || true)
+  if [ -z "$NOT_READY" ]; then
+    break
+  fi
+  sleep 2
 done
-echo "👉 Vérification que tous les pods sont Ready..."
-kubectl wait --for=condition=Ready pod -n longhorn-system --all --timeout=600s
-echo "✅ Longhorn complètement initialisé"
+echo "👉 Tous les pods sont dans un état stable (phase 1)"
+echo "👉 Vérification Ready condition..."
+kubectl wait  --for=condition=Ready pod  -n longhorn-system  --all  --timeout=600s  >/dev/null 2>&1
+echo "👉 Vérification finale des pods..."
 kubectl get pods -n longhorn-system
+echo "✅ Longhorn complètement initialisé"
 
 echo "📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌"
 
