@@ -141,7 +141,6 @@ echo "👉👉👉 cmd: kubectl get namespace longhorn-system >/dev/null 2>&1 ||
 kubectl get namespace longhorn-system >/dev/null 2>&1 || kubectl create namespace longhorn-system
 # Installer
 echo "👉👉👉 cmd: helm upgrade --install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace --wait --timeout 15m > logs/longhorn_namespace.log 2>&1"
-# helm upgrade --install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace
 helm upgrade --install longhorn longhorn/longhorn \
   --namespace longhorn-system \
   --create-namespace \

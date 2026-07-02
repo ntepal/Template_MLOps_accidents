@@ -633,10 +633,10 @@ push: ## [SYNC] Synchronisation bidirectionnelle : Git (Code) + DagsHub (Data/Mo
 docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou degub (non sécurisé) NB: .env configuré
 	@# Port externe 80 car port par défaut pour le navigateur et donc pas besoin de l'ajouter dans le navigateur
 	@rm -f .env
-	@rm -f k8s/airflow/.env.secret
-	@rm -f k8s/fastapi/.env.secret
-	@rm -f k8s/grafana/.env.config
-	@rm -f k8s/evidently/.env.config
+	@rm -f k8s/base/airflow/.env.secret
+	@rm -f k8s/base/fastapi/.env.secret
+	@rm -f k8s/base/grafana/.env.config
+	@rm -f k8s/base/evidently/.env.config
 	@echo "🛠️  Configuration de l'environnement..."
 	@echo "------------------------------------------"
 	@# Boucle tant que la saisie n'est ni 'prod' ni 'debug'
@@ -647,7 +647,7 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 	@echo "🔑 Génération d'une nouvelle clé Fernet de sécurité..."
 	@FERNET=$$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"); \
 	echo "AIRFLOW_FERNET_KEY=$$FERNET" > .env; \
-	echo "AIRFLOW_FERNET_KEY=$$FERNET" > k8s/airflow/.env.secret; \
+	echo "AIRFLOW_FERNET_KEY=$$FERNET" > k8s/base/airflow/.env.secret; \
 	echo ""
 	echo "👤 Configuration de l'utilisateur Airflow (valider vide pour 'admin')"; \
 	read -p "👉 Airflow Username [admin]: " user; \
@@ -655,9 +655,9 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 	read -p "👉 Airflow Password [admin]: " pass; \
 	pass=$${pass:-admin}; \
 	echo "_AIRFLOW_WWW_USER_USERNAME=$$user" >> .env; \
-	echo "_AIRFLOW_WWW_USER_USERNAME=$$user" >> k8s/airflow/.env.secret; \
+	echo "_AIRFLOW_WWW_USER_USERNAME=$$user" >> k8s/base/airflow/.env.secret; \
 	echo "_AIRFLOW_WWW_USER_PASSWORD=$$pass" >> .env; \
-	echo "_AIRFLOW_WWW_USER_PASSWORD=$$pass" >> k8s/airflow/.env.secret; \
+	echo "_AIRFLOW_WWW_USER_PASSWORD=$$pass" >> k8s/base/airflow/.env.secret; \
 	mode=""; \
 	while [ "$$mode" != "prod" ] && [ "$$mode" != "debug" ]; do \
 		echo "💡 prod (production): mode sécurisé SSL/HTTPS" ; \
@@ -674,7 +674,7 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 		echo "NGINX_PORT_OUT=80" >> .env; \
 		echo "NGINX_PORT_IN=80" >> .env; \
 		echo "NGINX_CONF_FILE=nginx_debug.conf" >> .env; \
-		echo "GF_SERVER_ROOT_URL=http://$$PROJECT_IP/grafana/" > k8s/grafana/.env.config; \
+		echo "GF_SERVER_ROOT_URL=http://$$PROJECT_IP/grafana/" > k8s/base/grafana/.env.config; \
 		echo "✅ Mode DEBUG configuré (Port 80, Conf HTTP)"; \
 	else \
 		echo "NGINX_MODE=prod" >> .env; \
@@ -682,22 +682,22 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 		echo "NGINX_PORT_OUT=443" >> .env; \
 		echo "NGINX_PORT_IN=443" >> .env; \
 		echo "NGINX_CONF_FILE=nginx.conf" >> .env; \
-		echo "GF_SERVER_ROOT_URL=https://$$PROJECT_IP/grafana/" > k8s/grafana/.env.config; \
+		echo "GF_SERVER_ROOT_URL=https://$$PROJECT_IP/grafana/" > k8s/base/grafana/.env.config; \
 		echo "✅ Mode PROD configuré (Port 443, Conf SSL/HTTPS)"; \
 	fi
 
 	@# Ajout des variables d'export du Makefile pour utilisation direct de la commande docker compose
 	@echo "PROJECT_NAME=$$PROJECT_NAME" >> .env
-	@echo "PROJECT_NAME=$$PROJECT_NAME" >> k8s/evidently/.env.config
+	@echo "PROJECT_NAME=$$PROJECT_NAME" >> k8s/base/evidently/.env.config
 	@echo "DAGSHUB_REPO_NAME=$$DAGSHUB_REPO_NAME" >> .env
-	@echo "DAGSHUB_USER=$(DAGSHUB_USER)" >> k8s/airflow/.env.secret
-	@echo "DAGSHUB_S3_ACCESS_KEY_ID=$(DAGSHUB_S3_ACCESS_KEY_ID)" >> k8s/airflow/.env.secret
-	@echo "DAGSHUB_S3_SECRET_ACCESS_KEY=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/airflow/.env.secret
-	@echo "MLFLOW_TRACKING_USERNAME=$(DAGSHUB_USER)" >> k8s/airflow/.env.secret
-	@echo "MLFLOW_TRACKING_PASSWORD=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/airflow/.env.secret
-	@echo "DAGSHUB_USER=$(DAGSHUB_USER)" > k8s/fastapi/.env.secret
-	@echo "DAGSHUB_S3_ACCESS_KEY_ID=$(DAGSHUB_S3_ACCESS_KEY_ID)" >> k8s/fastapi/.env.secret
-	@echo "DAGSHUB_S3_SECRET_ACCESS_KEY=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/fastapi/.env.secret
+	@echo "DAGSHUB_USER=$(DAGSHUB_USER)" >> k8s/base/airflow/.env.secret
+	@echo "DAGSHUB_S3_ACCESS_KEY_ID=$(DAGSHUB_S3_ACCESS_KEY_ID)" >> k8s/base/airflow/.env.secret
+	@echo "DAGSHUB_S3_SECRET_ACCESS_KEY=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/base/airflow/.env.secret
+	@echo "MLFLOW_TRACKING_USERNAME=$(DAGSHUB_USER)" >> k8s/base/airflow/.env.secret
+	@echo "MLFLOW_TRACKING_PASSWORD=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/base/airflow/.env.secret
+	@echo "DAGSHUB_USER=$(DAGSHUB_USER)" > k8s/base/fastapi/.env.secret
+	@echo "DAGSHUB_S3_ACCESS_KEY_ID=$(DAGSHUB_S3_ACCESS_KEY_ID)" >> k8s/base/fastapi/.env.secret
+	@echo "DAGSHUB_S3_SECRET_ACCESS_KEY=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/base/fastapi/.env.secret
 	@echo "PROJECT_IP=$$PROJECT_IP" >> .env
 	@echo "PATH=$$PATH" >> .env
 	@echo "USER_ID=$$USER_ID" >> .env
@@ -707,15 +707,15 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 	@echo "MLFLOW_TRACKING_URI=$$MLFLOW_TRACKING_URI" >> .env
 	@echo "DOCKER_MLFLOW_TRACKING_URI=$$DOCKER_MLFLOW_TRACKING_URI" >> .env
 	@echo "EVIDENTLY_PATH=$$EVIDENTLY_PATH" >> .env
-	@echo "EVIDENTLY_PATH=$$EVIDENTLY_PATH" >> k8s/evidently/.env.config
+	@echo "EVIDENTLY_PATH=$$EVIDENTLY_PATH" >> k8s/base/evidently/.env.config
 	@echo "WORKSPACE_NAME=$$WORKSPACE_NAME" >> .env
 	@echo "EVIDENTLY_WORKSPACE=$$EVIDENTLY_WORKSPACE" >> .env
-	@echo "EVIDENTLY_WORKSPACE=$$EVIDENTLY_WORKSPACE" >> k8s/evidently/.env.config
-	@echo "LOG_LEVEL=INFO" >> k8s/evidently/.env.config
-	@echo "MONITOR_DAEMON_TIMER=30" >> k8s/evidently/.env.config
+	@echo "EVIDENTLY_WORKSPACE=$$EVIDENTLY_WORKSPACE" >> k8s/base/evidently/.env.config
+	@echo "LOG_LEVEL=INFO" >> k8s/base/evidently/.env.config
+	@echo "MONITOR_DAEMON_TIMER=30" >> k8s/base/evidently/.env.config
 	@# on génère le grafana .env.config car il y a les variables
-	@echo "GF_SERVER_SERVE_FROM_SUB_PATH=true" >> k8s/grafana/.env.config
-	@echo "GF_WEBHOOK_URL=https://webhook.site/85262e74-bee6-4a52-9b9c-299f1208c67d" >> k8s/grafana/.env.config
+	@echo "GF_SERVER_SERVE_FROM_SUB_PATH=true" >> k8s/base/grafana/.env.config
+	@echo "GF_WEBHOOK_URL=https://webhook.site/85262e74-bee6-4a52-9b9c-299f1208c67d" >> k8s/base/grafana/.env.config
 
 	@echo "------------------------------------------"
 	@echo "📝 Fichier .env généré avec succès !"
