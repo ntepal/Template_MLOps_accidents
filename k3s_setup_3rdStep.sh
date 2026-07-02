@@ -238,7 +238,10 @@ echo "👉 Attente de la fin du rollout..."
 kubectl -n longhorn-system rollout status deploy/longhorn-ui --timeout=300s
 echo "👉 Vérification du nombre de replicas qui doit être 1"
 kubectl -n longhorn-system get deployment longhorn-ui
-
+echo "👉 Attendre que les pods Terminating aient complètement terminés avant de passer à la vérification"
+while kubectl get pods -n longhorn-system | grep longhorn-ui | grep -q Terminating; do
+    sleep 2
+done
 echo "📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌"
 
 echo ""

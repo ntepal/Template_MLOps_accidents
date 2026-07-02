@@ -55,10 +55,10 @@ kubectl get pods -A -o wide
 # équivalent docker images
 # sudo k3s ctr images list
 echo ""
-echo "//////////////////////////////////////////////////"
-echo "--- Installation terminée avec succès ! ---"
-echo "On peut maintenant utiliser les commmandes kubectl"
-echo "//////////////////////////////////////////////////"
+echo "/////////////////////////////////////////////////////////"
+echo "✅✅✅ --- Installation terminée avec succès ! ---"
+echo "✅✅✅ On peut maintenant utiliser les commmandes kubectl"
+echo "/////////////////////////////////////////////////////////"
 echo ""
 echo "//////////////////////////////////////////////////////////////////////////////////////////////////////"
 echo " Ensuite lancer la commande suivante pour initialiser CERT MANAGER ET LONGHORN (UTILISé POUR LES PVC) "

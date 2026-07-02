@@ -18,7 +18,7 @@ SHELL := /bin/bash
 .PHONY: docker-full-start-WoInitialTrain_fast kubernetes-start
 .PHONY: drift-on drift-off
 .PHONY: docker-stop docker-down docker-status
-.PHONY: ubuntu_usage docker-disks-storage docker-shell-mlflow docker-shell-postgres db-psql-postgres-data db-psql-postgres-disk
+.PHONY: ubuntu-usage docker-disks-storage docker-shell-mlflow docker-shell-postgres db-psql-postgres-data db-psql-postgres-disk
 .PHONY: variables test-variables
 
 
@@ -1271,7 +1271,7 @@ docker-status: ## [PROD][DOCKER] Affiche l'état des services et les ports actif
 	@echo "----------------------------------------------------------------"
 	@echo "💡 'Up' : le service fonctionne normalement."
 
-ubuntu_usage: ## [PROD][DOCKER] UBUNTU : VERIF RAM, DISK, CPU
+ubuntu-usage: ## [PROD][DOCKER] UBUNTU : VERIF RAM, DISK, CPU
 	@echo "--- RAM ---"
 	@free -h
 	@echo ""
