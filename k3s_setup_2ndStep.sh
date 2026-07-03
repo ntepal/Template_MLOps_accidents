@@ -36,24 +36,20 @@ echo "👉👉👉 vérification de la valeur de la variable KUBECONFIG"
 echo $KUBECONFIG
 
 echo ""
-echo "👉👉👉 cmd: kubectl version --client"
+echo "👉👉👉 cmd: kubectl get nodes"
 kubectl get nodes
-
-# presque équivalent à docker ps - voir les services running
-echo ""
-echo "👉👉👉 cmd: kubectl version --client"
-kubectl get pods -A
 
 # l'équivalent de docker images
 echo ""
-echo "👉👉👉 cmd: kubectl version --client"
+echo "ℹ️ On attend que tous les pods sont soit Running, soit Completed."
+until [ -z "$(kubectl get pods -A --no-headers | grep -vE 'Running|Completed')" ]; do
+  echo -n "."
+  sleep 2
+done
+echo "ℹ️ On vérifie que tous les pods Rsont unning ou Completed."
+echo "👉👉👉 cmd: kubectl get pods -A -o wide"
 kubectl get pods -A -o wide
-# équivalent docker compose up -d
-# kubectl apply -f deployment.yam
-# Si on ne veut qu'un service
-# kubectl create deployment nginx --image=nginx
-# équivalent docker images
-# sudo k3s ctr images list
+
 echo ""
 echo "/////////////////////////////////////////////////////////"
 echo "✅✅✅ --- Installation terminée avec succès ! ---"

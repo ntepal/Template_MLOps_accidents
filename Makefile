@@ -15,12 +15,12 @@ SHELL := /bin/bash
 .PHONY: setup-ci quality push
 .PHONY: docker_prod_or_debug docker-FullClean-full-build
 .PHONY: docker_service_full_check-health docker_check_port_routage docker_check_port_free docker_ssl_prep docker-reset-for-full-simu
-.PHONY: docker-full-start-WoInitialTrain_fast kubernetes-start
+.PHONY: docker-full-start-WoInitialTrain_fast
 .PHONY: drift-on drift-off
 .PHONY: docker-stop docker-down docker-status
 .PHONY: ubuntu-usage docker-disks-storage docker-shell-mlflow docker-shell-postgres db-psql-postgres-data db-psql-postgres-disk
 .PHONY: variables test-variables
-
+.PHONY: kubernetes-build kubernetes-start kubernetes-migrate-image
 
 # Raccourci : taper juste "make" lancera la liste des commandes du Makefile
 .DEFAULT_GOAL := help
@@ -826,11 +826,38 @@ kubernetes-migrate-image:
 	@docker rmi -f accidents_severity-$(IMG):1.0 > /dev/null 2>&1
 	@docker system prune -a -f --volumes > /dev/null 2>&1
 	@docker builder prune -a -f > /dev/null 2>&1
+	@# On supprime le .tar stocké dans kubernetes
+	@sudo ctr -n k8s.io content prune references
 	@echo "✅ $(IMG) migré avec succès."
 	@echo "Espace disque restant :"
 	@df -h / | grep /
 
-kubernetes-FullClean-full-build: ## [PROD][DOCKER] Reset TOTAL (Volumes/Images/Cache) ET NETTOYAGE DISK - Construction de toutes les images avec réinstallation systématique
+kubernetes-migrate-image-fast:
+	@echo "--- Traitement de $(IMG) ---"
+	@# Docker Compose Build avec logs
+	@docker build --no-cache -t accidents_severity-$(IMG):1.0 . > logs/build_$(IMG).log 2>&1 || { \
+		echo "==============================================================="; \
+		echo "❌ DOCKER BUILD FAILED pour $(IMG)"; \
+		echo "👉 Vérifiez les logs : logs/build_$(IMG).log"; \
+		echo "==============================================================="; \
+		exit 1; \
+	}
+
+	@echo "📍 --- Migration rapide vers kubernetes via pipe ---"
+	@docker save accidents_severity-$(IMG):1.0 | sudo ctr -n k8s.io images import -
+
+	@# Nettoyage
+	@echo "Nettoyage: on supprime l'image docker après migration vers kubernetes"
+	@docker rmi -f accidents_severity-$(IMG):1.0 > /dev/null 2>&1
+	@docker system prune -a -f --volumes > /dev/null 2>&1
+	@docker builder prune -a -f > /dev/null 2>&1
+	@# Nettoyage K8s (Crucial pour ne pas saturer le disque)
+	@sudo ctr -n k8s.io content prune references > /dev/null 2>&1
+	@echo "✅ $(IMG) migré avec succès."
+	@echo "Espace disque restant :"
+	@df -h / | grep /
+
+kubernetes-build: ## [PROD][DOCKER] Reset TOTAL (Volumes/Images/Cache) ET NETTOYAGE DISK - Construction de toutes les images avec réinstallation systématique
 	@echo "CONFIGURATION EN MODE PRODUCTION (SÉCURISÉ) OU DEBUG (NON SÉCURISÉ)..."
 	@# Le choix du mode détermine le port à utiliser
 	@$(MAKE) -s docker_prod_or_debug
@@ -854,6 +881,16 @@ kubernetes-FullClean-full-build: ## [PROD][DOCKER] Reset TOTAL (Volumes/Images/C
 	@echo "Vérification que les volumes sont tous supprimés"
 	@docker volume ls
 
+	@echo "Nettoyage Kubernetes Complet (Suppressions images etc...)"
+	@# Liste les images et les envoie une par une à la commande delete
+	sudo ctr -n k8s.io images list -q | xargs -r sudo ctr -n k8s.io images delete
+	@# Nettoie les blobs inutilisés
+	sudo ctr -n k8s.io content prune references
+	@# Supprime tous les snapshots du namespace
+	for img in $(sudo ctr -n k8s.io images list -q); do sudo ctr -n k8s.io images delete $img; done
+	@#Supprimer tous les snapshots
+	for snap in $(sudo ctr -n k8s.io snapshots ls | awk 'NR>1 {print $1}'); do sudo ctr -n k8s.io snapshots delete $snap; done
+
 	@echo "🗑️ Nettoyage des fichiers locaux..."
 	@sudo rm -rf models/*
 
@@ -875,13 +912,13 @@ kubernetes-FullClean-full-build: ## [PROD][DOCKER] Reset TOTAL (Volumes/Images/C
 	@echo "Lancement de la migration séquentielle..."
 	@# On boucle sur la liste des images
 	@for img in $(K8S_LOCAL_IMGS); do \
-		$(MAKE) migrate-image IMG=$$img || exit 1; \
+		$(MAKE) kubernetes-migrate-image-fast IMG=$$img || exit 1; \
 	done
 	@echo "🔥 Reconstruction totale terminée."
 	@echo "🚀 Toute la flotte est migrée vers Kubernetes !"
 	@echo "------------------------------------------------------------------------------------"
-	@echo "✅ IMAGES ACTUELLES DU PROJET DANS KUBERNETES (avec taille) :"
-	@sudo crictl images | grep "$(PROJECT_NAME)" | awk '{print $$1, $$2, $$4, $$5}'
+	@echo "✅ IMAGES ACTUELLES DU PROJET DANS KUBERNETES (taille non disponible simplement) :"
+	@sudo ctr -n k8s.io images list | grep "$(PROJECT_NAME)" | awk '{print $1}' | sed -E 's|docker.io/library/([^:]+):|\1 |'
 	@echo "------------------------------------------------------------------------------------"
 	@echo ""
 	@echo "Vérification de la RAM utilisée"
