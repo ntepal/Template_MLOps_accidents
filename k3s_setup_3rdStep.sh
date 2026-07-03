@@ -277,8 +277,14 @@ kubectl get storageclass
 echo "👉👉👉 cmd: kubectl get pods -A  ==> on doit voir kube-system traefik... longhorn-system longhorn... cert-manager cert-manager-..."
 kubectl get pods -A
 echo ""
-# Exposer l'interface Longhorn et Pour un premier test :
-echo "📌📌📌 Pour un 1er test, exposer l'interface Longhorn en lançant manuellemenet la commande"
-echo "👉👉👉 cmd: kubectl -n longhorn-system port-forward svc/longhorn-frontend 8080:80"
-# kubectl -n longhorn-system port-forward svc/longhorn-frontend 8080:80
-echo "📌📌📌 VERIFIER MANUELLEMENT L'INTERFACE VIA http://localhost:8080 ou http://@IP_VM:8080"
+kubectl get svc -n longhorn-system
+echo ""
+echo "📌📌📌 Adresses locales des services. On s'intéresse au front-end"
+echo "👉👉👉 cmd: kubectl get svc -n longhorn-system"
+kubectl get svc -n longhorn-system
+echo ""
+# Exposer l'interface Longhorn:
+echo "📌📌📌 Pour accéder à la user interface longhorn (WEB), on monte un tunnel en back-ground"
+echo "👉👉👉 cmd: kubectl port-forward svc/longhorn-frontend -n longhorn-system 8081:80 --address 0.0.0.0 > /dev/null 2>&1 &"
+kubectl port-forward svc/longhorn-frontend -n longhorn-system 8081:80 --address 0.0.0.0 > /dev/null 2>&1 &
+echo "📌📌📌 VERIFIER MANUELLEMENT L'ACCES A L'INTERFACE VIA http://@IP_VM:80"
