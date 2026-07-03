@@ -57,7 +57,9 @@ spec:
           # Si absente alors on l'a récupère sur le docker hub
           # Evolution dans un env de prod: mettre en place le sytème
           # pour récupérer l'image
-          imagePullPolicy: IfNotPresent
+          #imagePullPolicy: IfNotPresent
+	  # Configuration pour forcer l'utilisation de l'image locale
+          imagePullPolicy: Never
 
           command: ["bash", "-c"]
           args:

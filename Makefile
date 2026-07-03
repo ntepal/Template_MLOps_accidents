@@ -881,7 +881,7 @@ kubernetes-build: ## [PROD][DOCKER] Reset TOTAL (Volumes/Images/Cache) ET NETTOY
 	@echo "Vérification que les volumes sont tous supprimés"
 	@docker volume ls
 
-	@echo "Nettoyage Kubernetes Complet (Suppressions images etc...)"
+	@echo "☢️ Nettoyage Kubernetes Complet (Suppressions images etc...)"
 	@# Liste les images et les envoie une par une à la commande delete
 	sudo ctr -n k8s.io images list -q | xargs -r sudo ctr -n k8s.io images delete
 	@# Nettoie les blobs inutilisés

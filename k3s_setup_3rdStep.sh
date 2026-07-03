@@ -107,6 +107,12 @@ echo "📌📌📌 Log à partir de la racine dans logs/apt-update.log"
 # sudo apt update
 sudo apt update > logs/apt-update.log 2>&1
 echo "✅ APT UPDATE DONE"
+echo ""
+echo "👉👉👉 cmd: sudo apt-get install -y nfs-common"
+echo "📌📌📌 Installer client NFS sur la VM pour que le noyau Linux comprenne la commande mount -t nfs que Kubernetes exécute."
+sudo apt-get install -y nfs-common > logs/nfs-common.log 2>&1
+echo "✅ Install NFS-COMMON DONE"
+echo ""
 echo "👉👉👉 cmd: sudo apt install -y open-iscsi > logs/open-iscsi.log 2>&1"
 # sudo apt install -y open-iscsi
 sudo apt install -y open-iscsi > logs/open-iscsi.log 2>&1

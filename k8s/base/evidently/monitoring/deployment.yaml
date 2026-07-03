@@ -18,8 +18,10 @@ spec:
     spec:
       containers:
         - name: monitoring
-          image: evidently-ui:1.0
-          imagePullPolicy: IfNotPresent
+          image: evidently:1.0
+          #imagePullPolicy: IfNotPresent
+          # Configuration pour forcer l'utilisation de l'image locale
+          imagePullPolicy: Never
 
           command:
             - python3
