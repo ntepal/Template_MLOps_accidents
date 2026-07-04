@@ -28,6 +28,16 @@ spec:
             - secretRef:
                 name: postgres-secret
 
+          # j'ai initdb: error: directory "/var/lib/postgresql/data" exists but is not empty.
+          # Postgres, pour des raisons de sécurité, refuse de s'initialiser s'il trouve un
+          # dossier lost+found (créé par le système de fichiers) dans son répertoire de données.
+          # Avec PGDATA : "Ignore le répertoire racine, travaille dans /var/lib/postgresql/data/pgdata".
+          # Postgres crée alors le sous-dossier pgdata à l'intérieur de votre volume,
+          # et comme il est vide, l'initialisation réussit !
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
@@ -75,5 +85,5 @@ spec:
         storageClassName: longhorn
         resources:
           requests:
-            # Il faut un minimum de 5GB (mutliple de 1024) sur le disk
-            storage: 5Gi
+            # Il faut un minimum de 1GB (mutliple de 1024) sur le disk
+            storage: 1Gi

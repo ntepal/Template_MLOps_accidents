@@ -925,10 +925,10 @@ kubernetes-build: ## [PROD][DOCKER] Reset TOTAL (Volumes/Images/Cache) ET NETTOY
 	done
 	@echo "🔥 Reconstruction totale terminée."
 	@echo "🚀 Toute la flotte est migrée vers Kubernetes !"
-	@echo "------------------------------------------------------------------------------------"
-	@echo "✅ IMAGES ACTUELLES DU PROJET DANS KUBERNETES (taille non disponible simplement) :"
-	@sudo ctr -n k8s.io images list | grep "$(PROJECT_NAME)" | awk '{print $1}' | sed -E 's|docker.io/library/([^:]+):|\1 |'
-	@echo "------------------------------------------------------------------------------------"
+	@echo "---------------------------------------------------------------------------------------"
+	@echo "✅ IMAGES ACTUELLES DU PROJET DANS KUBERNETES (NOM COMPLET A UTILISER DANS DEPLOYMENT):"
+	@sudo ctr -n k8s.io images list | grep "$(PROJECT_NAME)"
+	@echo "---------------------------------------------------------------------------------------"
 	@echo ""
 	@echo "Vérification de la RAM utilisée"
 	@free -h
