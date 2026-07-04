@@ -862,8 +862,17 @@ kubernetes-build: ## [PROD][DOCKER] Reset TOTAL (Volumes/Images/Cache) ET NETTOY
 	@# Le choix du mode détermine le port à utiliser
 	@$(MAKE) -s docker_prod_or_debug
 
+	@echo ""
 	@echo "🛑 Arrêt et suppression des tous les conteneurs et volumes et orphelins existants..."
-	@docker compose down --volumes --remove-orphans
+	@docker compose down --volumes --remove-orphans || { \
+		echo "⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️"; \
+		echo ""; \
+		echo "ERREUR : LA COMMANDE A ECHOUé."; \
+		echo "Conseil : Pour l'erreur unknown flag: --volumes; See 'docker --help'"; \
+		echo "Conseil : SUREMENT OUBLI DE FAIRE D'ABORD LE MAKE INSTALL ?"; \
+		echo "⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️"; \
+		exit 1; \
+	}
 
 	@echo "☢️ RESET TOTAL : Suppression de TOUS les conteneurs restants (actifs ou orphelins)..."
 	@# C'est équivalent à dire: xarg=docker ps -aq;
