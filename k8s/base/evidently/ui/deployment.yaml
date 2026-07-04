@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
         - name: evidently-ui
-          image: accidents_severity-evidently:1.0
+          image: docker.io/library/accidents_severity-evidently:1.0
           #imagePullPolicy: IfNotPresent
           # Configuration pour forcer l'utilisation de l'image locale
           imagePullPolicy: Never

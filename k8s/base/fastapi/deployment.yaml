@@ -42,7 +42,7 @@ spec:
 
       containers:
         - name: api
-          image: accidents_severity-api:1.0
+          image: docker.io/library/accidents_severity-api:1.0
           #imagePullPolicy: IfNotPresent
           # Configuration pour forcer l'utilisation de l'image locale
           imagePullPolicy: Never

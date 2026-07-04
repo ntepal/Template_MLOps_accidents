@@ -10,8 +10,8 @@ spec:
 
       containers:
         - name: airflow-cli
-          image: accidents_severity-airflow:1.0
-          imagePullPolicy: IfNotPresent
+          image: docker.io/library/accidents_severity-airflow:1.0
+          imagePullPolicy: Never
 
           command: ["bash", "-c"]
           args:

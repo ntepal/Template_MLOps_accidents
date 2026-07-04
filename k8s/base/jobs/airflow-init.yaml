@@ -37,8 +37,10 @@ spec:
 
       containers:
         - name: airflow-init
-          image: accidents_severity-airflow:1.0
-          imagePullPolicy: IfNotPresent
+          image: docker.io/library/accidents_severity-airflow:1.0
+          #imagePullPolicy: IfNotPresent
+          # Configuration pour forcer l'utilisation de l'image locale
+          imagePullPolicy: Never
 
           command: ["bash", "-c"]
           args:

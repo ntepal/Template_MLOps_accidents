@@ -993,13 +993,15 @@ kubernetes-build: ## [PROD][KUBERNETES] Reset TOTAL (Volumes/Images/Cache) ET NE
 	@echo "---------------------------------------------------------------------------------------"
 	@echo ""
 	@echo "💡 Creation des Alias pour plus de simplicité!!!!"
-	@sleep 5
-	@$(MAKE) kubernetes-create-alias-images
-	@echo ""
-	@echo "-------------------------------------------------------------------------------------------------"
-	@echo "✅ IMAGES AVEC ADDITION D'ALIAS POUR RACCOURCIR LES NOM D'IMAGES ET LES UTILISER DANS DEPLOYMENT:"
-	@$(K8S_CTR_CMD) images list | grep "$(PROJECT_NAME)" | sort -k3
-	@echo "-------------------------------------------------------------------------------------------------"
+	@echo " ON NE LE FAIT PLUS CAR LES ALIAS NE SONT PAS RECONNUS PAR LE SERVICE QUI FAIT TOURNER LES CONTENUERS (LE KUBELET)."
+	@echo " MEME S'ILS APPARAISSENT DANS LA LISTE CTR, KUBELET EXIGE STRICTEMENT LE NOM COMPLET / ORIGINAL DE L'IMAGE POUR EFFECTUER LA CORRESPONDANCE DANS SON CATALOGUE LOCAL."
+	@#sleep 5
+	@#$(MAKE) kubernetes-create-alias-images
+	@#echo ""
+	@#echo "-------------------------------------------------------------------------------------------------"
+	@#echo "✅ IMAGES AVEC ADDITION D'ALIAS POUR RACCOURCIR LES NOM D'IMAGES ET LES UTILISER DANS DEPLOYMENT:"
+	@#$(K8S_CTR_CMD) images list | grep "$(PROJECT_NAME)" | sort -k3
+	@#echo "-------------------------------------------------------------------------------------------------"
 	@echo ""
 	@echo "Vérification de la RAM utilisée"
 	@free -h
