@@ -58,7 +58,7 @@ spec:
           # Evolution dans un env de prod: mettre en place le sytème
           # pour récupérer l'image
           #imagePullPolicy: IfNotPresent
-	  # Configuration pour forcer l'utilisation de l'image locale
+          # Configuration pour forcer l'utilisation de l'image locale
           imagePullPolicy: Never
 
           command: ["bash", "-c"]

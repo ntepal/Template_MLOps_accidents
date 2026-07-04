@@ -20,7 +20,8 @@ SHELL := /bin/bash
 .PHONY: docker-stop docker-down docker-status
 .PHONY: ubuntu-usage docker-disks-storage docker-shell-mlflow docker-shell-postgres db-psql-postgres-data db-psql-postgres-disk
 .PHONY: variables test-variables
-.PHONY: kubernetes-build kubernetes-start kubernetes-migrate-image
+.PHONY: kubernetes-build kubernetes-start kubernetes-migrate-image kubernetes-migrate-image-fast kubernetes-create-alias-images
+.PHONY: kubernetes-clean-all kubernetes-clean
 
 # Raccourci : taper juste "make" lancera la liste des commandes du Makefile
 .DEFAULT_GOAL := help
@@ -165,7 +166,8 @@ DEPENDANT_SERVICES_NUM = $(words $(DEPENDANT_SERVICES))
 # ====================================================
 # UTILISER POUR CREER LES IMAGES KUBERNETES
 # ====================================================
-K8S_LOCAL_IMGS = runner airflow mlflow evidently api
+K8S_LOCAL_IMAGES = runner airflow mlflow evidently api
+K8S_CTR_CMD = sudo ctr -a /run/k3s/containerd/containerd.sock -n k8s.io
 
 # =====================================
 # --- LISTE DES COMMANDES AVEC MAKE ---
@@ -833,7 +835,7 @@ kubernetes-migrate-image:
 	@df -h / | grep /
 
 kubernetes-migrate-image-fast:
-	@echo "--- Traitement de $(IMG) ---"
+	@echo "👉👉👉👉👉 --- Traitement de l'image $(IMG) ---"
 	@# Docker Compose Build avec logs
 	@docker build --no-cache -t accidents_severity-$(IMG):1.0 . > logs/build_$(IMG).log 2>&1 || { \
 		echo "==============================================================="; \
@@ -843,21 +845,77 @@ kubernetes-migrate-image-fast:
 		exit 1; \
 	}
 
-	@echo "📍 --- Migration rapide vers kubernetes via pipe ---"
-	@docker save accidents_severity-$(IMG):1.0 | sudo ctr -n k8s.io images import -
+	@echo "📍 --- Migration rapide vers kubernetes k3s (small version) via pipe ---"
+	@docker save accidents_severity-$(IMG):1.0 | $(K8S_CTR_CMD) images import -
 
 	@# Nettoyage
 	@echo "Nettoyage: on supprime l'image docker après migration vers kubernetes"
 	@docker rmi -f accidents_severity-$(IMG):1.0 > /dev/null 2>&1
 	@docker system prune -a -f --volumes > /dev/null 2>&1
 	@docker builder prune -a -f > /dev/null 2>&1
+
 	@# Nettoyage K8s (Crucial pour ne pas saturer le disque)
-	@sudo ctr -n k8s.io content prune references > /dev/null 2>&1
+	@echo "🧹 Nettoyage des références inutilisées..."
+	@$(K8S_CTR_CMD) content prune references > /dev/null 2>&1
+	@# Attente active : on boucle tant qu'un lock est détecté sur le store de contenu
+	@while sudo lsof /run/k3s/containerd/io.containerd.content.v1.content/content 2>/dev/null | grep -q 'containerd'; do \
+	    echo "   ⏳ En cours de nettoyage, attente..."; \
+	    sleep 2; \
+	done
+	@echo "✅ Nettoyage terminé."
 	@echo "✅ $(IMG) migré avec succès."
 	@echo "Espace disque restant :"
 	@df -h / | grep /
 
-kubernetes-build: ## [PROD][DOCKER] Reset TOTAL (Volumes/Images/Cache) ET NETTOYAGE DISK - Construction de toutes les images avec réinstallation systématique
+kubernetes-create-alias-images:  ## [PROD][KUBERNETES] Création des alias
+	@for img in $(K8S_LOCAL_IMAGES); do \
+		if $(K8S_CTR_CMD) images list | grep -q "docker.io/library/accidents_severity-$$img:1.0"; then \
+			echo "🚀 Création de l'ALIAS de $$img..."; \
+			$(K8S_CTR_CMD) images tag --force docker.io/library/accidents_severity-$$img:1.0 accidents_severity-$$img:1.0 || true; \
+		fi; \
+	done
+
+kubernetes-clean-all:
+	@# Destructif tout en incluant longhorn et plus
+	@echo "☢️ Nettoyage complet via K3s..."
+	# 1. On supprime tous les pods pour libérer les verrous sur les snapshots
+	@kubectl delete pods --all --all-namespaces --force --grace-period=0
+
+	# 2. On demande à containerd (via crictl, plus fiable pour K8s) de tout nettoyer
+	@# Supprime tous les conteneurs arrêtés
+	@crictl rm -a
+	@# Supprime toutes les images inutilisées
+	@crictl rmi --prune
+
+	# 3. On force le Garbage Collector de K3s à libérer l'espace disque
+	@# En redémarrant le service, K3s re-scanne ses besoins et purge le reste
+	@systemctl restart k3s
+	@echo "✅ Nettoyage terminé."
+
+kubernetes-clean:
+	@echo "🧹 Nettoyage sécurisé des ressources de build..."
+
+	# 1. Définition locale des variables pour garantir qu'elles existent
+	@$(eval CRICTL := sudo crictl --runtime-endpoint unix:///run/k3s/containerd/containerd.sock)
+	@$(eval CTR := sudo ctr -n k8s.io)
+
+	@echo "-- Suppression des images du projet : $(PROJECT_NAME) --"
+	@# 1. Lister les images au format standard
+	@# 2. Filtrer les lignes contenant votre projet
+	@# 3. Récupérer uniquement l'ID (colonne 3)
+	@# 4. Supprimer chaque ID
+	@$(CRICTL) images | grep "$(PROJECT_NAME)" | awk '{print $$3}' | xargs -r $(CRICTL) rmi
+
+	@echo "-- Suppression snapshots orphelins (ctr) --"
+	@# 'ctr content prune references' est la commande correcte pour K3s
+	@$(CTR) content prune references
+
+	@echo "-- Suppression sélective des images (ctr) --"
+	@$(CTR) images list -q | grep "mon-registry.com/" | xargs -r $(CTR) images delete
+
+	@echo "✅ Nettoyage terminé sans toucher aux volumes Longhorn."
+
+kubernetes-build: ## [PROD][KUBERNETES] Reset TOTAL (Volumes/Images/Cache) ET NETTOYAGE DISK - Construction de toutes les images avec réinstallation systématique
 	@echo "CONFIGURATION EN MODE PRODUCTION (SÉCURISÉ) OU DEBUG (NON SÉCURISÉ)..."
 	@# Le choix du mode détermine le port à utiliser
 	@$(MAKE) -s docker_prod_or_debug
@@ -891,14 +949,18 @@ kubernetes-build: ## [PROD][DOCKER] Reset TOTAL (Volumes/Images/Cache) ET NETTOY
 	@docker volume ls
 
 	@echo "☢️ Nettoyage Kubernetes Complet (Suppressions images etc...)"
+	$(MAKE) kubernetes-clean
+
+	@# --------------- DEBUT - EN COMMENTAIRE CAR REMPLACE PAR FONCTION ---------------------------------
+	@# Utilisation de K8S_CTR_CMD pour cibler le socket K3s
+	@# Suppression des images
 	@# Liste les images et les envoie une par une à la commande delete
-	sudo ctr -n k8s.io images list -q | xargs -r sudo ctr -n k8s.io images delete
-	@# Nettoie les blobs inutilisés
-	sudo ctr -n k8s.io content prune references
-	@# Supprime tous les snapshots du namespace
-	for img in $(sudo ctr -n k8s.io images list -q); do sudo ctr -n k8s.io images delete $img; done
-	@#Supprimer tous les snapshots
-	for snap in $(sudo ctr -n k8s.io snapshots ls | awk 'NR>1 {print $1}'); do sudo ctr -n k8s.io snapshots delete $snap; done
+	@#$(K8S_CTR_CMD) images list -q | xargs -r $(K8S_CTR_CMD) images delete
+	@# Nettoyage des blobs inutilisés (Ciblé k3s)
+	@#$(K8S_CTR_CMD) content prune references
+	@# Suppression des snapshots (Le namespace k8s.io doit être précisé)
+	@#for snap in $$($(K8S_CTR_CMD) snapshots ls | awk 'NR>1 {print $$1}'); do $(K8S_CTR_CMD) snapshots delete $$snap done
+	@# --------------- FIN - EN COMMENTAIRE CAR REMPLACE PAR FONCTION ---------------------------------
 
 	@echo "🗑️ Nettoyage des fichiers locaux..."
 	@sudo rm -rf models/*
@@ -920,15 +982,24 @@ kubernetes-build: ## [PROD][DOCKER] Reset TOTAL (Volumes/Images/Cache) ET NETTOY
 	@mkdir -p logs
 	@echo "Lancement de la migration séquentielle..."
 	@# On boucle sur la liste des images
-	@for img in $(K8S_LOCAL_IMGS); do \
+	@for img in $(K8S_LOCAL_IMAGES); do \
 		$(MAKE) kubernetes-migrate-image-fast IMG=$$img || exit 1; \
 	done
 	@echo "🔥 Reconstruction totale terminée."
 	@echo "🚀 Toute la flotte est migrée vers Kubernetes !"
 	@echo "---------------------------------------------------------------------------------------"
-	@echo "✅ IMAGES ACTUELLES DU PROJET DANS KUBERNETES (NOM COMPLET A UTILISER DANS DEPLOYMENT):"
-	@sudo ctr -n k8s.io images list | grep "$(PROJECT_NAME)"
+	@echo "✅ IMAGES ACTUELLES DU PROJET DANS KUBERNETES (NOM COMPLET):"
+	@$(K8S_CTR_CMD) images list | grep "$(PROJECT_NAME)"
 	@echo "---------------------------------------------------------------------------------------"
+	@echo ""
+	@echo "💡 Creation des Alias pour plus de simplicité!!!!"
+	@sleep 5
+	@$(MAKE) kubernetes-create-alias-images
+	@echo ""
+	@echo "-------------------------------------------------------------------------------------------------"
+	@echo "✅ IMAGES AVEC ADDITION D'ALIAS POUR RACCOURCIR LES NOM D'IMAGES ET LES UTILISER DANS DEPLOYMENT:"
+	@$(K8S_CTR_CMD) images list | grep "$(PROJECT_NAME)" | sort -k3
+	@echo "-------------------------------------------------------------------------------------------------"
 	@echo ""
 	@echo "Vérification de la RAM utilisée"
 	@free -h
@@ -1237,7 +1308,7 @@ docker-full-start-WoInitialTrain_fast: ## [PROD][DOCKER] Démarrage simultannés
 
 # Lancer tout l'écosystème conteneurisé sur kubernetes
 # L'option -d (--detach) pour le faire tourner en tâche de fond (daemon mode)
-kubernetes-start: ## [PROD][DOCKER] Démarrage simultanés des services Postgres et Redis, puis Airflow-Init et enfin tous les autres sans Initial Train
+kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Postgres et Redis, puis Airflow-Init et enfin tous les autres sans Initial Train
 	@# Sécurité et Infrastructure
 	@sudo chmod a+rw /var/run/docker.sock
 	@# Verifier que ce port n'est pas utilisé dans les tables de routage
