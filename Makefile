@@ -21,7 +21,7 @@ SHELL := /bin/bash
 .PHONY: ubuntu-usage docker-disks-storage docker-shell-mlflow docker-shell-postgres db-psql-postgres-data db-psql-postgres-disk
 .PHONY: variables test-variables
 .PHONY: kubernetes-build kubernetes-start kubernetes-migrate-image kubernetes-migrate-image-fast kubernetes-create-alias-images
-.PHONY: kubernetes-clean-all kubernetes-clean
+.PHONY: kubernetes-clean-all kubernetes-clean kubernetes-reset-cluster
 
 # Raccourci : taper juste "make" lancera la liste des commandes du Makefile
 .DEFAULT_GOAL := help
@@ -915,6 +915,14 @@ kubernetes-clean:
 
 	@echo "✅ Nettoyage terminé sans toucher aux volumes Longhorn."
 
+kubernetes-reset-cluster:
+	@echo "🔥 Réinitialisation propre du namespace de travail..."
+	# On supprime seulement le namespace, pas K3s lui-même
+	@kubectl delete namespace accidents-severity --wait=true || true
+	@# On laisse le temps au Garbage Collector de K3s de vider les volumes Longhorn
+	@sleep 10
+	@echo "✅ Namespace nettoyé, le cluster K3s est intact et prêt."
+
 kubernetes-build: ## [PROD][KUBERNETES] Reset TOTAL (Volumes/Images/Cache) ET NETTOYAGE DISK - Construction de toutes les images avec réinstallation systématique
 	@echo "CONFIGURATION EN MODE PRODUCTION (SÉCURISÉ) OU DEBUG (NON SÉCURISÉ)..."
 	@# Le choix du mode détermine le port à utiliser
@@ -949,7 +957,7 @@ kubernetes-build: ## [PROD][KUBERNETES] Reset TOTAL (Volumes/Images/Cache) ET NE
 	@docker volume ls
 
 	@echo "☢️ Nettoyage Kubernetes Complet (Suppressions images etc...)"
-	$(MAKE) kubernetes-clean
+	$(MAKE) kubernetes-reset-cluster
 
 	@# --------------- DEBUT - EN COMMENTAIRE CAR REMPLACE PAR FONCTION ---------------------------------
 	@# Utilisation de K8S_CTR_CMD pour cibler le socket K3s
