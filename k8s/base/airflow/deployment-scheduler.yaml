@@ -74,6 +74,10 @@ spec:
           env:
             - name: AIRFLOW__CORE__EXECUTOR
               value: CeleryExecutor
+            - name: AIRFLOW_HOSTNAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
 
           # startupProbe: inutile car démarrage rapide
 
@@ -84,10 +88,10 @@ spec:
               command:
                 - bash
                 - -c
-                - airflow jobs check --job-type SchedulerJob --hostname "$HOSTNAME"
-            initialDelaySeconds: 30
+                - airflow jobs check --job-type SchedulerJob --hostname "$AIRFLOW_HOSTNAME"
+            initialDelaySeconds: 60
             periodSeconds: 30
-            timeoutSeconds: 10
+            timeoutSeconds: 15
             failureThreshold: 5
 
           # Vérification périodique pour savoir si le pod est toujours vivant
@@ -98,10 +102,10 @@ spec:
               command:
                 - bash
                 - -c
-                - pgrep -f airflow-scheduler
-            initialDelaySeconds: 30
-            periodSeconds: 30
-            timeoutSeconds: 10
+                - airflow jobs check --job-type SchedulerJob --hostname "$AIRFLOW_HOSTNAME"
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 15
             failureThreshold: 5
 
           volumeMounts:

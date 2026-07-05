@@ -75,6 +75,10 @@ spec:
           env:
             - name: AIRFLOW__CORE__EXECUTOR
               value: CeleryExecutor
+            - name: AIRFLOW_HOSTNAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
 
           # startupProbe: inutile car démarrage rapide
 
@@ -86,25 +90,26 @@ spec:
           readinessProbe:
             exec:
               command:
-                - bash
+                - /bin/sh
                 - -c
-                - celery --app airflow.executors.celery_executor.app inspect ping
-            initialDelaySeconds: 30
+                - celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$AIRFLOW_HOSTNAME"
+            initialDelaySeconds: 60
             periodSeconds: 30
-            timeoutSeconds: 10
+            timeoutSeconds: 15
             failureThreshold: 5
 
           # Vérification périodique pour savoir si le pod est toujours vivant
           # Donc comme bonne pratique, vérifier si le process est toujours vivant
+          # pgrep n'est pas supporté
           livenessProbe:
             exec:
               command:
-                - bash
+                - /bin/sh
                 - -c
-                - pgrep -f "celery worker"
-            initialDelaySeconds: 30
-            periodSeconds: 30
-            timeoutSeconds: 10
+                - celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$AIRFLOW_HOSTNAME"
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 15
             failureThreshold: 5
 
           volumeMounts:
