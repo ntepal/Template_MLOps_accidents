@@ -23,15 +23,12 @@ USER root
 # On prend le ${PYTHONPATH} déjà défini dans l'image auquel on rajoute /app
 ENV PYTHONPATH="${PYTHONPATH}:/app"
 
-# Définir AIRFLOW_HOME AVANT de créer le dossier et de changer les droits
-ENV AIRFLOW_HOME=/app
-
 # NB: airflow est le nom user et aussi le nom groupe définis par défaut dans l'image
 # NB: Dans le docker-compose, on définit le user/groupe a utiliser et qui écrasera
 # ce user/groupe défini par dans cette image
 # airflow a besoin des droits user:groupe pour écrire dans /app
 # chown airflow:0 : droits user:groupe donnés à /app; le groupe 0 est root
-RUN mkdir -p /app && chown airflow:0 /app && chmod -R 775 /app
+RUN mkdir -p /app && chown airflow:0 /app
 
 # On définit le répertoire de travail
 WORKDIR /app

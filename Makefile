@@ -1394,11 +1394,11 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 
 	@echo ""
 	@echo "⏳ Apps..."
-	@#kubectl wait --for=condition=ready pod -l app=fastapi -n accidents-severity --timeout=300s || true
+	@#kubectl wait --for=condition=ready pod -l app=prediction-api -n accidents-severity --timeout=300s || true
 	@#kubectl wait --for=condition=ready pod -l app=mlflow -n accidents-severity --timeout=300s || true
 	@#kubectl wait --for=condition=ready pod -l app=airflow-webserver -n accidents-severity --timeout=600s || true
 	@# Mieux car vérifie le Deployment, les ReplicaSets, que tous les pods sont stables, que le rollout est terminé
-	kubectl rollout status deployment/fastapi -n accidents-severity --timeout=300s
+	kubectl rollout status deployment/prediction-api -n accidents-severity --timeout=300s
 	kubectl rollout status deployment/mlflow -n accidents-severity --timeout=300s
 	kubectl rollout status deployment/airflow-webserver -n accidents-severity --timeout=600s
 

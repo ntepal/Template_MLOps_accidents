@@ -1,0 +1,76 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: airflow-init
+  labels:
+    app: airflow
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 600
+
+  template:
+    spec:
+      # Comme dans le deployment de mlflow pour s'assurer des droits identiques partout
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+
+      restartPolicy: OnFailure
+
+      initContainers:
+        # On ne met pas -U airflow dans le until car il n'est pas encore créé
+        # C'est justement le init-job qui le crée
+        - name: wait-for-postgres
+          image: postgres:16.13-trixie
+          imagePullPolicy: IfNotPresent
+
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h postgres -p 5432; do
+                echo "⏳ Waiting for postgres..."
+                sleep 2
+              done
+              echo "✅ Postgres is ready"
+
+      containers:
+        - name: airflow-init
+          image: docker.io/library/accidents_severity-airflow:1.0
+          #imagePullPolicy: IfNotPresent
+          # Configuration pour forcer l'utilisation de l'image locale
+          imagePullPolicy: Never
+
+          command: ["bash", "-c"]
+          args:
+            # | = construire 1 seule chaîne de caractères multi-lignes,
+            # en conservant exactement les retours à la ligne”
+            # Ainsi, bash -c reçoit cette chaine et bash l’interprète comme du code
+            - |
+              # Le script s'arrête si erreur
+              set -e
+
+              echo "⚙️ Running Airflow migrations..."
+              airflow db migrate
+
+              echo "🚀 Creating admin user (if not exists)..."
+              # Cherche si l'utilisateur (w: match uniquement le mot exact) existe déjà dans la liste
+              if ! airflow users list | grep -qw "$_AIRFLOW_WWW_USER_USERNAME"; then
+                airflow users create \
+                  --username "$_AIRFLOW_WWW_USER_USERNAME" \
+                  --password "$_AIRFLOW_WWW_USER_PASSWORD" \
+                  --firstname Admin \
+                  --lastname User \
+                  --role Admin \
+                  --email admin@example.com
+              else
+                echo "User already exists"
+              fi
+              echo "✅ Airflow init completed"
+
+          envFrom:
+            - configMapRef:
+                name: airflow-config
+            - secretRef:
+                name: airflow-secret
