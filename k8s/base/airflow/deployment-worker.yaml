@@ -19,11 +19,11 @@ spec:
 
     spec:
       # Comme dans le deployment de mlflow pour s'assurer des droits identiques partout
-      securityContext:
-        runAsUser: 1000
+      #securityContext:
+        #runAsUser: 1000
          # Le Dokcerfile le fait en root
-        runAsGroup: 0
-        fsGroup: 0
+        #runAsGroup: 0
+        #fsGroup: 0
 
       initContainers:
         - name: wait-for-postgres
@@ -75,7 +75,15 @@ spec:
           env:
             - name: AIRFLOW__CORE__EXECUTOR
               value: CeleryExecutor
-            - name: AIRFLOW_HOSTNAME
+            # Celery utilisera cette variable pour se nommer correctement
+            - name: CELERY_WORKER_NAME
+              value: "worker@$(HOSTNAME)"
+            #- name: AIRFLOW_HOSTNAME
+            #  valueFrom:
+            #    fieldRef:
+            #      fieldPath: metadata.name
+            # On injecte le nom du pod pour qu'il soit utilisable dans --hostname
+            - name: HOSTNAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name

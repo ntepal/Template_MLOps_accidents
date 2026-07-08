@@ -1,0 +1,79 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: airflow-init
+  labels:
+    app: airflow
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 600
+
+  template:
+    spec:
+      # Comme dans le deployment de mlflow pour s'assurer des droits identiques partout
+      securityContext:
+        runAsUser: 0
+        #runAsUser: 5000
+        #runAsGroup: 5000
+        #fsGroup: 5000
+
+      restartPolicy: OnFailure
+
+      containers:
+        - name: airflow-init
+          image: docker.io/library/accidents_severity-airflow:1.0
+          #imagePullPolicy: IfNotPresent
+          # Configuration pour forcer l'utilisation de l'image locale
+          imagePullPolicy: Never
+
+          command: ["bash", "-c"]
+          args:
+            # | = construire 1 seule chaîne de caractères multi-lignes,
+            # en conservant exactement les retours à la ligne”
+            # Ainsi, bash -c reçoit cette chaine et bash l’interprète comme du code
+            - |
+              # Le script s'arrête si erreur
+              #set -e
+              #echo "📦 Installing missing providers..."
+              #pip install apache-airflow-providers-celery apache-airflow-providers-cncf-kubernetes
+
+              echo "⚙️ Running Airflow migrations..."
+              airflow db migrate || echo "Migration failed, check logs"
+
+              echo "🚀 Creating admin user (if not exists)..."
+              # On continue même si l'user existe déjà
+              airflow users create \
+                --username "$_AIRFLOW_WWW_USER_USERNAME" \
+                --password "$_AIRFLOW_WWW_USER_PASSWORD" \
+                --firstname Admin \
+                --lastname User \
+                --role Admin \
+                --email admin@example.com
+              # Cherche si l'utilisateur (w: match uniquement le mot exact) existe déjà dans la liste
+              #if ! airflow users list | grep -qw "$_AIRFLOW_WWW_USER_USERNAME"; then
+              #  airflow users create \
+              #    --username "$_AIRFLOW_WWW_USER_USERNAME" \
+              #    --password "$_AIRFLOW_WWW_USER_PASSWORD" \
+              #    --firstname Admin \
+              #    --lastname User \
+              #    --role Admin \
+              #    --email admin@example.com
+              #else
+              #  echo "User already exists"
+              #fi
+              echo "✅ Airflow init completed"
+
+          #env:
+          #  - name: AIRFLOW_HOME
+          #    value: /app
+          #  - name: AIRFLOW__CORE__BASE_LOG_FOLDER
+          #    value: /app/logs
+          #  # On force aussi l'emplacement du fichier de configuration
+          #  - name: AIRFLOW_CONFIG
+          #    value: /app/airflow.cfg
+
+          envFrom:
+            - configMapRef:
+                name: airflow-config
+            - secretRef:
+                name: airflow-secret
