@@ -64,7 +64,12 @@ spec:
 
           command: ["bash", "-c"]
           args:
-            - airflow celery worker
+            - |
+              # On utilise le chemin complet vers l'exécutable celery trouvé dans le conteneur
+              # On définit le nom du worker dynamiquement
+              exec /app/.venv/bin/celery --app airflow.providers.celery.executors.celery_executor.app worker --hostname="worker@$HOSTNAME" --loglevel=info
+          #  - sleep 3600
+          #  - airflow celery worker
 
           envFrom:
             - configMapRef:
@@ -75,32 +80,21 @@ spec:
           env:
             - name: AIRFLOW__CORE__EXECUTOR
               value: CeleryExecutor
-            # Celery utilisera cette variable pour se nommer correctement
-            - name: CELERY_WORKER_NAME
-              value: "worker@$(HOSTNAME)"
-            #- name: AIRFLOW_HOSTNAME
-            #  valueFrom:
-            #    fieldRef:
-            #      fieldPath: metadata.name
-            # On injecte le nom du pod pour qu'il soit utilisable dans --hostname
             - name: HOSTNAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            # Cette variable force le nom du worker Celery
+            - name: CELERY_WORKER_NAME
+              value: "worker@$HOSTNAME"
 
-          # startupProbe: inutile car démarrage rapide
-
-          # Vérification périodique pour savoir si le pod peut recevoir du trafic
-          # (pas vraiment utile pour un worker mais gardé par cohérence de structure)
-          # -d "celery@$${HOSTNAME} (présent dans le docker-compose) devient inutile
-          # voir même contre-productif car il ne cible qu'un worker et en plus avec les
-          # pods, les noms peuvent chnager
           readinessProbe:
             exec:
               command:
                 - /bin/sh
                 - -c
-                - celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$AIRFLOW_HOSTNAME"
+                - /app/.venv/bin/celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "worker@$HOSTNAME"
+                #- celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$AIRFLOW_HOSTNAME"
             initialDelaySeconds: 60
             periodSeconds: 30
             timeoutSeconds: 15
@@ -114,7 +108,8 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$AIRFLOW_HOSTNAME"
+                - /app/.venv/bin/celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "worker@$HOSTNAME"
+                #- celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$AIRFLOW_HOSTNAME"
             initialDelaySeconds: 60
             periodSeconds: 60
             timeoutSeconds: 15

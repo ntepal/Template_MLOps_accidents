@@ -1,0 +1,106 @@
+# On vérifie que le service renvoie bien une erreur si postgres n'a pas démarré
+# Ainsi, grâce au deployement, Kubernetes redémarre automatiquement le pod
+# Donc, grâce à ce mécanisme, la dépendance (docker-compose) devient inutile
+# Pour tester, on lance kubectl apply -k k8s/mlflow puis kubectl get pods -n accidents-severity -w
+# pour voir l'évolution temps réel. Puis sur un autre terminal, on fait 
+# kubectl logs -f deployment/mlflow -n accidents-severity pour voir en temps réel
+# ce qui se passe et s'assurer que ça plante car le postgres n'est pas ready
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: mlflow
+
+  template:
+    metadata:
+      labels:
+        app: mlflow
+
+    spec:
+      # Le securityContext définit l'identité du processus dans le conteneur
+      # et les permissions d'accès au volume (fsGroup)
+      # Remplace les anciens scripts (fix-permissions) de type chown dans Docker Compose
+      # Les containers (docker-compose) écrivent avec les droits roots. Pour les volumes
+      # partagés, cela générait des conflits de droits car des fichiers étaient root
+      # Le fix-permissions permet de fixer les droit users/group dès le début et ainsi les
+      # containers qui ont les droits roots ont donc les droits pour écrire dans des répertoires
+      # de droits users/groups et donc ne les modifient pas
+      # Avec securityContext, on fixe lses droits runAsUser / runAsGroup et donc ils tournent
+      # directement en UID cohérents
+      # Avec le fsgroup: le volume monté est automatiquement accessible au groupe 1000
+      # Kubernetes ajuste les permissions au montage
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16.13-trixie
+          imagePullPolicy: IfNotPresent
+
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h postgres -p 5432 -U airflow; do
+                echo "⏳ Waiting for postgres..."
+                sleep 2
+              done
+              echo "✅ Postgres is ready"
+
+      containers:
+        - name: mlflow
+          image: docker.io/library/accidents_severity-mlflow:1.0
+          # Si absente alors on l'a récupère sur le docker hub
+          # Evolution dans un env de prod: mettre en place le sytème
+          # pour récupérer l'image
+          #imagePullPolicy: IfNotPresent
+          # Configuration pour forcer l'utilisation de l'image locale
+          imagePullPolicy: Never
+
+          ports:
+            - containerPort: 5000
+
+          env:
+            - name: MLFLOW_HTTP_REQUEST_TIMEOUT
+              value: "60"
+            - name: DATABASE_URL
+              value: postgresql://airflow:airflow@postgres:5432/mlflow
+
+          startupProbe:
+            httpGet:
+              path: /
+              port: 5000
+            periodSeconds: 10
+            failureThreshold: 30   # ~150s max
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            periodSeconds: 10
+            failureThreshold: 3
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 5000
+            periodSeconds: 10
+            # Prendre en compte les lenteurs
+            failureThreshold: 5
+
+          volumeMounts:
+            - name: mlflow-artifacts
+              mountPath: /app/artifacts
+
+      volumes:
+        - name: mlflow-artifacts
+          persistentVolumeClaim:
+            claimName: mlflow-artifacts-pvc

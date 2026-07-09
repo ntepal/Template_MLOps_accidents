@@ -37,13 +37,6 @@ RUN uv sync --frozen --no-cache --no-install-project
 # Copier TOUS, SAUF ce qui est indiqué dans le .dockerignore (filtre) vers /app/..
 COPY src/mlflow /app/src/mlflow
 
-# ON DOIT REVENIR EN ROOT POUR RÉPARER LES DROITS
-USER root
-# Suppression du dossier inutile et modification des droits pour l'utilisateur 1000
-RUN rm -rf /app/.dvc && chown -R 1000:1000 /app
-# ON REVIENT À L'UTILISATEUR SÉCURISÉ
-USER 1000
-
 # Ajouter le chemin de l'environnement virtuel créé par uv au PATH
 ENV PATH="/app/.venv/bin:$PATH"
 
