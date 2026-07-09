@@ -13,6 +13,23 @@ spec:
 
       restartPolicy: OnFailure
 
+      initContainers:
+        # On ne met pas -U airflow dans le until car il n'est pas encore créé
+        # C'est justement le init-job qui le crée
+        - name: wait-for-postgres
+          image: postgres:16.13-trixie
+          imagePullPolicy: IfNotPresent
+
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h postgres -p 5432; do
+                echo "⏳ Waiting for postgres..."
+                sleep 2
+              done
+              echo "✅ Postgres is ready"
+
       containers:
       - name: create-mlflow-db
         image: postgres:16.13-trixie

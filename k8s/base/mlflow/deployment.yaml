@@ -72,13 +72,13 @@ spec:
           ports:
             - containerPort: 5000
 
-          # C'est fait dans l'image dockerfile
-          #command: ["/bin/sh", "-c"]
-          #args:
-          #  - |
-          #    rm -rf /app/.dvc /app/dvc.yaml /app/dvc.lock
-          #    chown -R 1000:1000 /app/artifacts
-          #    mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri ${DATABASE_URL} --default-artifact-root /app/artifacts --allowed-hosts '*' --cors-allowed-origins '*'
+          # C'est fait dans l'image dockerfile mais apparemment ce n'est pas suffisant je dois le faire ici
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              rm -rf /app/.dvc /app/dvc.yaml /app/dvc.lock
+              chown -R 1000:1000 /app/artifacts
+              mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri ${DATABASE_URL} --default-artifact-root /app/artifacts --allowed-hosts '*' --cors-allowed-origins '*'
 
           env:
             - name: MLFLOW_HTTP_REQUEST_TIMEOUT
