@@ -39,9 +39,13 @@ COPY src/mlflow /app/src/mlflow
 
 # ON DOIT REVENIR EN ROOT POUR RÉPARER LES DROITS
 USER root
-# Suppression du dossier inutile et modification des droits pour l'utilisateur 1000
-RUN rm -rf /app/.dvc && chown -R 1000:1000 /app
-# ON REVIENT À L'UTILISATEUR SÉCURISÉ
+# 1. Nettoyage définitif des artefacts DVC
+RUN rm -rf /app/.dvc /app/dvc.yaml /app/dvc.lock
+# 2. Création du répertoire des artefacts s'il n'existe pas (bonne pratiques)
+RUN mkdir -p /app/artifacts
+# 3. Fixation des droits (on s'assure que le user 1000 est propriétaire)
+RUN chown -R 1000:1000 /app
+# 4. On reivent à l'utilisateur sécurisé
 USER 1000
 
 # Ajouter le chemin de l'environnement virtuel créé par uv au PATH

@@ -6,10 +6,10 @@ spec:
   template:
     spec:
       # Comme dans le deployment de mlflow pour s'assurer des droits identiques partout
-      securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
-        fsGroup: 1000
+      #securityContext:
+      #  runAsUser: 1000
+      #  runAsGroup: 1000
+      #  fsGroup: 1000
 
       restartPolicy: OnFailure
 
