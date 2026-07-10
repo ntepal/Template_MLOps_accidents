@@ -41,9 +41,9 @@ COPY src /app/src/
 # ON DOIT REVENIR EN ROOT POUR RÉPARER LES DROITS
 USER root
 # 1. Nettoyage définitif des artefacts DVC
-RUN rm -rf /app/.dvc /app/dvc.yaml /app/dvc.lock
+#RUN rm -rf /app/.dvc /app/dvc.yaml /app/dvc.lock
 # 2. Création du répertoire des artefacts s'il n'existe pas (bonne pratiques)
-RUN mkdir -p /app/artifacts
+#RUN mkdir -p /app/artifacts
 # 3. Fixation des droits (on s'assure que le user 1000 est propriétaire)
 RUN chown -R 1000:1000 /app /app/data
 # 4. On reivent à l'utilisateur sécurisé

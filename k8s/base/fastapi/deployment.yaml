@@ -28,15 +28,10 @@ spec:
         - name: fix-permissions
           image: busybox:1.36
           imagePullPolicy: IfNotPresent
-          #command: ["sh", "-c", "chmod -R 777 /app/.dvc || true"]
           command:
-
             - sh
             - -c
             - |
-              # On nettoie le volume monté immédiatement
-              rm -f /app/dvc.lock /app/dvc.yaml
-              rm -rf /app/.dvc
               # On s'assure que le user 1000 a les droits sur le volume
               chown -R 1000:1000 /app/data /app/artifacts
               echo "✅ Volume nettoyé et droits fixés."
@@ -69,7 +64,12 @@ spec:
           #imagePullPolicy: IfNotPresent
           # Configuration pour forcer l'utilisation de l'image locale
           imagePullPolicy: Never
-          #command: ["/bin/sh", "-c", "sleep 3600"]
+          resources:
+            limits:
+              memory: "1Gi"
+            requests:
+              memory: "512Mi"
+          command: ["/bin/sh", "-c", "sleep 3600"]
 
           ports:
             - containerPort: 8000
