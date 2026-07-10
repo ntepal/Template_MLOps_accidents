@@ -69,7 +69,11 @@ spec:
               memory: "1Gi"
             requests:
               memory: "512Mi"
-          command: ["/bin/sh", "-c", "sleep 3600"]
+          #command: ["/bin/sh", "-c", "sleep 3600"]
+          # On ignore tout ce qui est dans le Dockerfile (CMD/ENTRYPOINT) ça ça génère une erreur
+          command: ["python3"]
+          args: ["-m", "uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--forwarded-allow-ips", "*"]
+          workingDir: /app
 
           ports:
             - containerPort: 8000
