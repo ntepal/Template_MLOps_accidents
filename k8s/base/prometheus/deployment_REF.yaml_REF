@@ -14,10 +14,6 @@ spec:
         app: prometheus
 
     spec:
-      # UID Prometheus
-      securityContext:
-        runAsUser: 65534
-        fsGroup: 65534
       containers:
         - name: prometheus
           image: prom/prometheus:v2.51.2

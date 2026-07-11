@@ -23,23 +23,15 @@ spec:
           # Configuration pour forcer l'utilisation de l'image locale
           imagePullPolicy: Never
 
-          #workingDir: /app/data/evidently/accidents_severity-ws
-
-          # Pas de workingDir ici, on le gère dans la commande pour plus de sécurité
-          command: ["/bin/sh", "-c", "sleep 3600"]
-          #command: ["/bin/sh", "-c"]
-          #args:
-          #  - "/app/monitoring/.venv/bin/evidently ui --workspace /app/data/evidently/accidents_severity-ws --port 8000 --host 0.0.0.0"
-          # "." correspond au répertoire courant donc le workingDir
-          #command:
-          #  - evidently
-          #  - ui
-          #  - --workspace
-          #  - "."
-          #  - --port
-          #  - "8000"
-          #  - --host
-          #  - "0.0.0.0"
+          command:
+            - evidently
+            - ui
+            - --workspace
+            - /workspace
+            - --port
+            - "8000"
+            - --host
+            - "0.0.0.0"
 
           ports:
             - containerPort: 8000
@@ -64,8 +56,7 @@ spec:
 
           volumeMounts:
             - name: workspace
-              mountPath: /app/data/evidently
-              #mountPath: /workspace
+              mountPath: /workspace
 
       volumes:
         - name: workspace

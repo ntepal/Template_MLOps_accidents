@@ -23,16 +23,9 @@ spec:
           # Configuration pour forcer l'utilisation de l'image locale
           imagePullPolicy: Never
 
-          #workingDir: /app/data/evidently/accidents_severity-ws
-
-          # Utilisation du chemin absolu complet vers le script
-          command: ["/bin/sh", "-c"]
-          args:
-            - "python3 /app/src/monitoring/evidently_monitor_daemon.py"
-
-          #command:
-          #  - python3
-          #  - src/monitoring/evidently_monitor_daemon.py
+          command:
+            - python3
+            - src/monitoring/evidently_monitor_daemon.py
 
           envFrom:
             - configMapRef:
@@ -40,8 +33,7 @@ spec:
 
           volumeMounts:
             - name: workspace
-              mountPath: /app/data/evidently
-              #mountPath: /workspace
+              mountPath: /workspace
 
       volumes:
         - name: workspace
