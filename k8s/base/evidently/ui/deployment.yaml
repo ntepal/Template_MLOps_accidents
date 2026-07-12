@@ -16,6 +16,9 @@ spec:
         app: evidently-ui
 
     spec:
+      securityContext:
+        runAsUser: 1000      # L'utilisateur avec lequel le processus tourne
+        fsGroup: 1000        # Ceci donne les droits au groupe 1000 sur tout le volume monté
       containers:
         - name: evidently-ui
           image: docker.io/library/accidents_severity-evidently:1.0
@@ -26,10 +29,10 @@ spec:
           #workingDir: /app/data/evidently/accidents_severity-ws
 
           # Pas de workingDir ici, on le gère dans la commande pour plus de sécurité
-          command: ["/bin/sh", "-c", "sleep 3600"]
-          #command: ["/bin/sh", "-c"]
-          #args:
-          #  - "/app/monitoring/.venv/bin/evidently ui --workspace /app/data/evidently/accidents_severity-ws --port 8000 --host 0.0.0.0"
+          #command: ["/bin/sh", "-c", "sleep 3600"]
+          command: ["/bin/sh", "-c"]
+          args:
+            - "/app/monitoring/.venv/bin/evidently ui --workspace /app/data/evidently/accidents_severity-ws --port 8000 --host 0.0.0.0"
           # "." correspond au répertoire courant donc le workingDir
           #command:
           #  - evidently
@@ -52,14 +55,14 @@ spec:
             httpGet:
               path: /
               port: 8000
-            initialDelaySeconds: 5
+            initialDelaySeconds: 20
             periodSeconds: 10
 
           livenessProbe:
             httpGet:
               path: /
               port: 8000
-            initialDelaySeconds: 10
+            initialDelaySeconds: 30
             periodSeconds: 15
 
           volumeMounts:

@@ -6,68 +6,52 @@ set -e
 echo "--- Adapater le projet sur k3s ---"
 
 echo ""
-echo "//////////////////////////////////////////////////////////////////"
-echo "Vérification de la présence de Traefik installé par défaut avec k3"
-echo "//////////////////////////////////////////////////////////////////"
+echo "///////////////////////////////////////////////"
+echo "Vérification de la présence de Traefik "
+echo "///////////////////////////////////////////////"
 echo ""
 echo "👉👉👉 cmd: kubectl get pods -A  ==> on doit voir traefik-xxxxxxxxxx-xxxxx"
 kubectl get pods -A
 
-echo "//////////////////////////////////////////////////////////////////////////////////////////////////////"
-echo "--- Désactivation de Traefik (natif K3s) pour laisser place à Nginx Ingress qui est plus MLOPS PRO ---"
-echo "//////////////////////////////////////////////////////////////////////////////////////////////////////"
-
-# 1. Mise à l'échelle à 0
-echo "📌 Mise à l'échelle de Traefik à 0..."
-kubectl scale deployment traefik -n kube-system --replicas=0 --ignore-not-found
-
-# 2. Vérification de l'absence
-echo "📌 Vérification de l'arrêt effectif..."
-# On attend quelques secondes pour que le contrôleur s'arrête
-sleep 5
-
-# On compte le nombre de pods traefik en état 'Running'
-TRAEFIK_PODS=$(kubectl get pods -n kube-system -l app.kubernetes.io/name=traefik --no-headers | grep -v Terminating | wc -l)
-
-if [ "$TRAEFIK_PODS" -gt 0 ]; then
-    echo "❌ ERREUR : Traefik est toujours présent et actif."
-    echo "Veuillez vérifier manuellement avant de poursuivre."
-    exit 1
-else
-    echo "✅ Traefik a été désactivé avec succès."
-fi
-
-echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+echo "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
 echo "---------- IMPERATIF: A FAIRE UNIQUEMENT SI LA VM A ETE REINITIALISEE"
+echo " --------- Toutes les commandes de réinit en commentaire car ça ne marche pas parfaitement"
+echo "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
 
-
-echo "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
-echo " --------- Toutes les commandes de réinit en commentaire car ça ne marche pas parfaitemente et donc source de problème"
 #echo "📌 Delete namespace Longhorn"
 #kubectl delete ns longhorn-system --ignore-not-found --wait=false
+
 #echo "📌 Delete namespace cert-manager"
 #kubectl delete ns cert-manager --ignore-not-found --wait=false
+
 #echo "📌 Delete Longhorn CRDs"
 #kubectl get crd | grep longhorn | awk '{print $1}' | xargs -r kubectl delete crd
+
 #echo "📌 Delete cert-manager CRDs"
 #kubectl get crd | grep cert-manager | awk '{print $1}' | xargs -r kubectl delete crd
+
 #echo "📌 Delete StorageClass"
 #kubectl delete storageclass longhorn --ignore-not-found
+
 #echo "📌📌📌 Helm uninstall"
 #helm uninstall longhorn -n longhorn-system || true
 #helm uninstall cert-manager -n cert-manager || true
+
 #echo "📌📌📌 Delete namespaces"
 #kubectl delete ns longhorn-system --ignore-not-found --wait
 #kubectl delete ns cert-manager --ignore-not-found --wait
+
 #echo "📌📌📌 Delete CRDs (cleanup full reset)"
 #kubectl get crd | grep longhorn | awk '{print $1}' | xargs -r kubectl delete crd
 #kubectl get crd | grep cert-manager | awk '{print $1}' | xargs -r kubectl delete crd
+
 #echo "📌📌📌 Delete StorageClass"
 #kubectl delete storageclass longhorn --ignore-not-found
+
 #echo "📌📌📌 FINAL CHECK"
 #kubectl get pods -A | grep -E "longhorn|cert-manager" || true
 #kubectl get crd | grep -E "longhorn|cert-manager" || true
-echo "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
+echo "NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN"
 
 echo "📌📌📌 Création du répertoire logs"
 mkdir -p logs
@@ -221,36 +205,11 @@ echo "##########################################################################
 echo "///////////////////////////////////////////////////////////////////////////////////////////"
 
 echo ""
-echo "///////////////////////////////////////////////////////////////////////////////////////////////"
-echo "--- INSTALLATION INGRESS-NGINX (Contrôleur standard MLOps préféré à Traefik par l'indutrie) ---"
-echo "///////////////////////////////////////////////////////////////////////////////////////////////"
-
-# Désactivation de Traefik pour éviter les conflits fait au début du ficher
-#echo "📌 Désactivation du Traefik natif de K3s..."
-#kubectl scale deployment traefik -n kube-system --replicas=0 --ignore-not-found
-
-# Installation Nginx avec exposition directe sur l'IP de la VM
-echo "📌 Installation d'Ingress-Nginx (Mode LoadBalancer)..."
-helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-helm repo update
-
-# Le LoadBalencer pour me permettre de faire http://<IP_PUBLIQUE_DE_VOTRE_VM>/xxx
-helm upgrade --install ingress-nginx ingress-nginx \
-  --repo https://kubernetes.github.io/ingress-nginx \
-  --namespace ingress-nginx \
-  --create-namespace \
-  --set controller.service.type=LoadBalancer \
-  --wait \
-  --timeout 10m
-
-echo "✅ Ingress-Nginx est opérationnel et est exposé sur l'IP de la VM."
-
-echo ""
 echo "📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌"
-echo "---------- IMPORTANT VM=29GO DONC REDUIRE AU MAX LA CONSO LONGHORN / REPLICA... -----------"
+echo "---------- IMPORTANT VM=24GO DONC REDUIRE AU MAX LA CONSO LONGHORN / REPLICA... -----------"
 echo "📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌📌"
 echo ""
-echo "🟢 CONFIGURATION LONGHORN OPTIMISÉE (VM 29GB)"
+echo "🟢 CONFIGURATION LONGHORN OPTIMISÉE (VM 24GB)"
 echo "👉 Réduction replicas : 3 → 1"
 kubectl -n longhorn-system patch settings.longhorn.io default-replica-count \
   --type merge \

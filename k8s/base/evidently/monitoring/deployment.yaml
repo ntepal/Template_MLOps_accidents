@@ -16,6 +16,25 @@ spec:
         app: evidently-monitoring
 
     spec:
+      initContainers:
+        - name: wait-for-evidently-ui-and-prepare
+          image: busybox:1.36
+          #command: ['sh', '-c', 'until nc -z evidently-ui 8000; do echo waiting for ui; sleep 2; done;']
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z evidently-ui 8000; do echo "Attente du service UI..."; sleep 2; done;
+              mkdir -p /app/data/evidently/reports
+              echo "Dossier /app/data/evidently/reports créé."
+              mkdir -p /app/data/evidently/accidents_severity-ws
+              echo "Dossier /app/data/evidently/accidents_severity-ws."
+              chown -R 1000:1000 /app/data/evidently
+              echo "Droit 1000:1000 pour /app/data/evidently effectués."
+          volumeMounts:
+            - name: workspace
+              mountPath: /app/data/evidently
+
       containers:
         - name: monitoring
           image: docker.io/library/accidents_severity-evidently:1.0

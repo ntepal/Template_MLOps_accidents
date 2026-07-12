@@ -166,7 +166,8 @@ DEPENDANT_SERVICES_NUM = $(words $(DEPENDANT_SERVICES))
 # ====================================================
 # UTILISER POUR CREER LES IMAGES KUBERNETES
 # ====================================================
-K8S_LOCAL_IMAGES = runner airflow mlflow evidently api
+K8S_LOCAL_SERVICES_DOCKER_COMPOSE = airflow-webserver mlflow evidently_ui api
+K8S_LOCAL_IMAGES = airflow mlflow evidently api runner
 K8S_CTR_CMD = sudo ctr -a /run/k3s/containerd/containerd.sock -n k8s.io
 
 # =====================================
@@ -834,9 +835,50 @@ kubernetes-migrate-image:
 	@echo "Espace disque restant :"
 	@df -h / | grep /
 
-kubernetes-migrate-image-fast:
+kubernetes-migrate-image-from-service: ## [PROD][KUBERNETES] Création d'image docker (dans docker-compose) migré vers kubernetes et image docker supprimée pour l'espace disk
+	@echo "👉👉👉👉👉 --- Traitement de l'image $(IMG) du service $(SERVICE_IMG) ---"
+	@# Docker Compose Build avec logs
+
+	@docker compose build --no-cache $(SERVICE_IMG) > logs/build_$(IMG).log 2>&1 || { \
+		echo ""; \
+		echo "==============================================================="; \
+		echo "❌ DOCKER BUILD FAILED pour $(IMG) du service $(SERVICE_IMG)"; \
+		echo "👉 Vérifiez les logs : logs/build_$(IMG).log"; \
+		echo "==============================================================="; \
+		echo "👉 Problème déjà vu suite à la réinitialisation de la VM"; \
+		echo "👉 Dans le log: failed to load provenance blob (race condition)"; \
+		echo "⚡⚡⚡⚡⚡⚡⚡⚡ Action: RELANCER LA COMMANDE" ⚡⚡⚡⚡⚡⚡⚡⚡; \
+		echo "⚠️ Si le problème persiste, consulter les logs: logs/build.log"; \
+		echo "==============================================================="; \
+		exit 1; \
+	}
+
+	@echo "📍 --- Migration rapide vers kubernetes k3s (small version) via pipe ---"
+	@docker save accidents_severity-$(IMG):1.0 | $(K8S_CTR_CMD) images import -
+
+	@# Nettoyage
+	@echo "Nettoyage: on supprime l'image docker après migration vers kubernetes"
+	@docker rmi -f accidents_severity-$(IMG):1.0 > /dev/null 2>&1
+	@docker system prune -a -f --volumes > /dev/null 2>&1
+	@docker builder prune -a -f > /dev/null 2>&1
+
+	@# Nettoyage K8s (Crucial pour ne pas saturer le disque)
+	@echo "🧹 Nettoyage des références inutilisées..."
+	@$(K8S_CTR_CMD) content prune references > /dev/null 2>&1
+	@# Attente active : on boucle tant qu'un lock est détecté sur le store de contenu
+	@while sudo lsof /run/k3s/containerd/io.containerd.content.v1.content/content 2>/dev/null | grep -q 'containerd'; do \
+	    echo "   ⏳ En cours de nettoyage, attente..."; \
+	    sleep 2; \
+	done
+	@echo "✅ Nettoyage terminé."
+	@echo "✅ $(IMG) migré avec succès."
+	@echo "Espace disque restant :"
+	@df -h / | grep /
+
+kubernetes-migrate-image-not-from-service: ## [PROD][KUBERNETES] Création d'image docker (pas dans docker compose) migré vers kubernetes et image docker supprimée pour l'espace disk
 	@echo "👉👉👉👉👉 --- Traitement de l'image $(IMG) ---"
 	@# Docker Compose Build avec logs
+
 	@docker build --no-cache -t accidents_severity-$(IMG):1.0 . > logs/build_$(IMG).log 2>&1 || { \
 		echo "==============================================================="; \
 		echo "❌ DOCKER BUILD FAILED pour $(IMG)"; \
@@ -844,6 +886,7 @@ kubernetes-migrate-image-fast:
 		echo "==============================================================="; \
 		exit 1; \
 	}
+	@# Fin - Mis en commentaire car pour evidently il faut prendre dans src/monitoring
 
 	@echo "📍 --- Migration rapide vers kubernetes k3s (small version) via pipe ---"
 	@docker save accidents_severity-$(IMG):1.0 | $(K8S_CTR_CMD) images import -
@@ -991,7 +1034,12 @@ kubernetes-build: ## [PROD][KUBERNETES] Reset TOTAL (Volumes/Images/Cache) ET NE
 	@echo "Lancement de la migration séquentielle..."
 	@# On boucle sur la liste des images
 	@for img in $(K8S_LOCAL_IMAGES); do \
-		$(MAKE) kubernetes-migrate-image-fast IMG=$$img || exit 1; \
+		@if [ "$(img)" = "runner" ]; then \
+			$(MAKE) kubernetes-migrate-image-not-from-service IMG=$$img || exit 1; \
+		else \
+			svc=$$(echo "$(K8S_LOCAL_SERVICES_DOCKER_COMPOSE)" | tr ' ' '\n' | grep "$$img"); \
+			$(MAKE) kubernetes-migrate-image-from-service IMG=$$img SERVICE_IMG=$$svc || exit 1; \
+		fi
 	done
 	@echo "🔥 Reconstruction totale terminée."
 	@echo "🚀 Toute la flotte est migrée vers Kubernetes !"

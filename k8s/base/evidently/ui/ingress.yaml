@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: evidently-ui-ingress
+  namespace: accidents-severity
+  annotations:
+    # Très important pour que Nginx réécrive les URLs correctement
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: mondomaine.local
+    http:
+      paths:
+      - path: /evidently
+        pathType: Prefix
+        backend:
+          service:
+            name: evidently-ui
+            port:
+              number: 8000

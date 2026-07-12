@@ -8,7 +8,15 @@ spec:
     app: evidently-ui
 
   ports:
-    - port: 8000
-      targetPort: 8000
+    # Très utile si on a plusieurs ports sur le même service (ex: 8000 pour ui et 9000 pour metrics)
+    # Si ce n'est pas le cas, on peut faire tout simplement:
+    # - port: 8000
+    #   targetport: 8000
+    - name: ui-port
+      protocol: TCP
+      port: 8000        # Port interne au cluster
+      targetPort: 8000  # Port réel dans le conteneur
+
+
 
   type: ClusterIP

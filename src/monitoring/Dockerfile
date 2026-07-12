@@ -21,9 +21,6 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.3 /uv /bin/uv
 WORKDIR /app
 RUN mkdir -p /app/monitoring
 
-# 1. Copier TOUTES les sources d'abord. 
-# C'est crucial pour que 'uv sync' puisse voir le projet local
-COPY src /app/src
 # Copier les fichiers de dépendances dans le répertoire courant (= de travail)
 # Le .venv est généré dans src/monitoring. On garde donc la même structure
 COPY src/monitoring/pyproject.toml /app/monitoring/pyproject.toml
@@ -39,7 +36,7 @@ RUN uv sync --frozen --no-cache --project /app/monitoring --no-install-project
 
 # Copier TOUS, SAUF ce qui est indiqué dans le .dockerignore (filtre) vers /app/..
 # src préférable à src/models en cas de fonctions partagées
-#COPY src /app/src/
+COPY src /app/src/
 
 # Ajouter le chemin de l'environnement virtuel créé par uv au PATH
 ENV PATH="/app/monitoring/.venv/bin:$PATH"
