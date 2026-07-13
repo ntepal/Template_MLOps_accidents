@@ -22,6 +22,7 @@ SHELL := /bin/bash
 .PHONY: variables test-variables
 .PHONY: kubernetes-build kubernetes-start kubernetes-migrate-image kubernetes-migrate-image-fast kubernetes-create-alias-images
 .PHONY: kubernetes-clean-all kubernetes-clean kubernetes-reset-cluster
+.PHONY: kubernetes-migrate-image-from-service kubernetes-migrate-image-not-from-service
 
 # Raccourci : taper juste "make" lancera la liste des commandes du Makefile
 .DEFAULT_GOAL := help
@@ -1034,12 +1035,12 @@ kubernetes-build: ## [PROD][KUBERNETES] Reset TOTAL (Volumes/Images/Cache) ET NE
 	@echo "Lancement de la migration séquentielle..."
 	@# On boucle sur la liste des images
 	@for img in $(K8S_LOCAL_IMAGES); do \
-		@if [ "$(img)" = "runner" ]; then \
+		if [ "$$img" = "runner" ]; then \
 			$(MAKE) kubernetes-migrate-image-not-from-service IMG=$$img || exit 1; \
 		else \
 			svc=$$(echo "$(K8S_LOCAL_SERVICES_DOCKER_COMPOSE)" | tr ' ' '\n' | grep "$$img"); \
 			$(MAKE) kubernetes-migrate-image-from-service IMG=$$img SERVICE_IMG=$$svc || exit 1; \
-		fi
+		fi; \
 	done
 	@echo "🔥 Reconstruction totale terminée."
 	@echo "🚀 Toute la flotte est migrée vers Kubernetes !"

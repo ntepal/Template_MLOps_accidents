@@ -17,4 +17,4 @@ resources:
   - base/node-exporter
   - base/cadvisor
   - base/evidently
-  #- base/ingress
+  - base/ingress

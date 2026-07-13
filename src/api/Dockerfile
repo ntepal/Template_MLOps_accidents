@@ -44,6 +44,7 @@ USER root
 #RUN rm -rf /app/.dvc /app/dvc.yaml /app/dvc.lock
 # 2. Création du répertoire des artefacts s'il n'existe pas (bonne pratiques)
 #RUN mkdir -p /app/artifacts
+RUN mkdir -p /app/data
 # 3. Fixation des droits (on s'assure que le user 1000 est propriétaire)
 RUN chown -R 1000:1000 /app /app/data
 # 4. On reivent à l'utilisateur sécurisé

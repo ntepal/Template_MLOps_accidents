@@ -67,8 +67,7 @@ spec:
             - |
               # On utilise le chemin complet vers l'exécutable celery trouvé dans le conteneur
               # On définit le nom du worker dynamiquement
-              exec /home/airflow/.local/bin/celery --app airflow.providers.celery.executors.celery_executor.app worker --hostname="worker@$HOSTNAME" --loglevel=info
-              #exec /app/.venv/bin/celery --app airflow.providers.celery.executors.celery_executor.app worker --hostname="worker@$HOSTNAME" --loglevel=info
+              exec /app/.venv/bin/celery --app airflow.providers.celery.executors.celery_executor.app worker --hostname="worker@$HOSTNAME" --loglevel=info
           #  - sleep 3600
           #  - airflow celery worker
 
@@ -94,12 +93,11 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - /home/airflow/.local/bin/celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "worker@$HOSTNAME"
-                #- /app/.venv/bin/celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "worker@$HOSTNAME"
+                - /app/.venv/bin/celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "worker@$HOSTNAME"
                 #- celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$AIRFLOW_HOSTNAME"
             initialDelaySeconds: 60
             periodSeconds: 30
-            timeoutSeconds: 30
+            timeoutSeconds: 15
             failureThreshold: 5
 
           # Vérification périodique pour savoir si le pod est toujours vivant
@@ -110,12 +108,11 @@ spec:
               command:
                 - /bin/sh
                 - -c
-                - /home/airflow/.local/bin/celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "worker@$HOSTNAME"
-                #- /app/.venv/bin/celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "worker@$HOSTNAME"
+                - /app/.venv/bin/celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "worker@$HOSTNAME"
                 #- celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$AIRFLOW_HOSTNAME"
             initialDelaySeconds: 60
             periodSeconds: 60
-            timeoutSeconds: 30
+            timeoutSeconds: 15
             failureThreshold: 5
 
           volumeMounts:

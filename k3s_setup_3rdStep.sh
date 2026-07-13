@@ -6,36 +6,37 @@ set -e
 echo "--- Adapater le projet sur k3s ---"
 
 echo ""
-echo "//////////////////////////////////////////////////////////////////"
-echo "Vérification de la présence de Traefik installé par défaut avec k3"
-echo "//////////////////////////////////////////////////////////////////"
+echo "//////////////////////////////////////////////////////////////////////////////////////////////////////"
+echo "Vérification de l'absence de Traefik car il n'est plus installé avec k3"
+echo "--- Désactivation de Traefik (natif K3s) pour laisser place à Nginx Ingress qui est plus MLOPS PRO ---"
+echo "///////////////////////////////////////////////////x///////////////////////////////////////////////////"
 echo ""
-echo "👉👉👉 cmd: kubectl get pods -A  ==> on doit voir traefik-xxxxxxxxxx-xxxxx"
+echo "👉👉👉 cmd: kubectl get pods -A  ==> on NE doit PLUS voir traefik-xxxxxxxxxx-xxxxx"
 kubectl get pods -A
 
-echo "//////////////////////////////////////////////////////////////////////////////////////////////////////"
-echo "--- Désactivation de Traefik (natif K3s) pour laisser place à Nginx Ingress qui est plus MLOPS PRO ---"
-echo "//////////////////////////////////////////////////////////////////////////////////////////////////////"
+#echo "//////////////////////////////////////////////////////////////////////////////////////////////////////"
+#echo "--- Désactivation de Traefik (natif K3s) pour laisser place à Nginx Ingress qui est plus MLOPS PRO ---"
+#echo "//////////////////////////////////////////////////////////////////////////////////////////////////////"
 
 # 1. Mise à l'échelle à 0
-echo "📌 Mise à l'échelle de Traefik à 0..."
-kubectl scale deployment traefik -n kube-system --replicas=0 --ignore-not-found
+#echo "📌 Mise à l'échelle de Traefik à 0..."
+#kubectl scale deployment traefik -n kube-system --replicas=0 --ignore-not-found
 
 # 2. Vérification de l'absence
-echo "📌 Vérification de l'arrêt effectif..."
+#echo "📌 Vérification de l'arrêt effectif..."
 # On attend quelques secondes pour que le contrôleur s'arrête
-sleep 5
+#sleep 5
 
 # On compte le nombre de pods traefik en état 'Running'
-TRAEFIK_PODS=$(kubectl get pods -n kube-system -l app.kubernetes.io/name=traefik --no-headers | grep -v Terminating | wc -l)
+#TRAEFIK_PODS=$(kubectl get pods -n kube-system -l app.kubernetes.io/name=traefik --no-headers | grep -v Terminating | wc -l)
 
-if [ "$TRAEFIK_PODS" -gt 0 ]; then
-    echo "❌ ERREUR : Traefik est toujours présent et actif."
-    echo "Veuillez vérifier manuellement avant de poursuivre."
-    exit 1
-else
-    echo "✅ Traefik a été désactivé avec succès."
-fi
+#if [ "$TRAEFIK_PODS" -gt 0 ]; then
+#    echo "❌ ERREUR : Traefik est toujours présent et actif."
+#    echo "Veuillez vérifier manuellement avant de poursuivre."
+#    exit 1
+#else
+#    echo "✅ Traefik a été désactivé avec succès."
+#fi
 
 echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 echo "---------- IMPERATIF: A FAIRE UNIQUEMENT SI LA VM A ETE REINITIALISEE"
@@ -220,6 +221,28 @@ kubectl get storageclass
 echo "##########################################################################################"
 echo "///////////////////////////////////////////////////////////////////////////////////////////"
 
+
+echo ""
+echo "///////////////////////////////////////////////////////////////////////////////////////////////"
+echo "--- DANS http://@IP_VM:8081/#/setting, ACCEDER AUX SETTINGS ---"
+echo "--- MODIFICATION AUTOMATIQUE DE 'Storage Minimal Available Percentage' A 5 ---"
+echo "--- MODIFICATION AUTOMATIQUE DE 'Storage Reserved Percentage For Default Disk' A 5 ---"
+echo "--- LA RAISON EST QU'ON A PEU DE DISK ET DONC OBLIGER DE REDUIRE ---"
+echo "///////////////////////////////////////////////////////////////////////////////////////////////"
+
+# 1. Modifier le Storage Minimal Available Percentage à 5%
+kubectl patch setting storage-minimal-available-percentage \
+  -n longhorn-system \
+  --type='merge' \
+  -p '{"value": "5"}'
+
+# 2. Modifier le Storage Reserved Percentage For Default Disk à 5%
+kubectl patch setting storage-reserved-percentage-for-default-disk \
+  -n longhorn-system \
+  --type='merge' \
+  -p '{"value": "5"}'
+
+
 echo ""
 echo "///////////////////////////////////////////////////////////////////////////////////////////////"
 echo "--- INSTALLATION INGRESS-NGINX (Contrôleur standard MLOps préféré à Traefik par l'indutrie) ---"
@@ -328,4 +351,4 @@ echo ""
 echo "📌📌📌 Pour accéder à la user interface longhorn (WEB), on monte un tunnel en back-ground"
 echo "👉👉👉 cmd: kubectl port-forward svc/longhorn-frontend -n longhorn-system 8081:80 --address 0.0.0.0 > /dev/null 2>&1 &"
 kubectl port-forward svc/longhorn-frontend -n longhorn-system 8081:80 --address 0.0.0.0 > /dev/null 2>&1 &
-echo "📌📌📌 VERIFIER MANUELLEMENT L'ACCES A L'INTERFACE VIA http://@IP_VM:80"
+echo "📌📌📌 VERIFIER MANUELLEMENT L'ACCES A L'INTERFACE VIA http://@IP_VM:8081"

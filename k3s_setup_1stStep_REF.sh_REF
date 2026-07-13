@@ -7,13 +7,11 @@ echo "--- Démarrage de l'installation de K3s ---"
 
 # 1. Installation de K3s
 echo ""
-echo "////////////////////////////////////////////"
-echo "Installation de K3s...sans installer traefik"
-echo "////////////////////////////////////////////"
+echo "///////////////////////////////////"
+echo "Installation de K3s..."
+echo "///////////////////////////////////"
 # curl -sfL https://get.k3s.io | sh -
-# curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.29.6+k3s1 sh -
-# On ne télécharge pas traefik car on privilégie l'option ingress-nginx qui est plus pro
-curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.29.6+k3s1 sh -s - --disable traefik
+curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=v1.29.6+k3s1 sh -
 
 # --- AJOUTER CE BLOC D'ATTENTE ---
 #echo "Attente de la génération du fichier de configuration K3s..."
