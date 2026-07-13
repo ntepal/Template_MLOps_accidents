@@ -3,7 +3,17 @@ kind: Service
 metadata:
   name: postgres
 spec:
+  # Les services n'ont pas besoin d'être exposés directement sur Internet.
+  # Ils doivent simplement être accessibles par le contrôleur Ingress.
+  # C'est la configuration la plus sécurisée : si le service est en ClusterIP,
+  # un hacker ne peut pas attaquer directement le service en contournant l'Ingress.
+  type: ClusterIP
+
   selector:
-    app: postgres
+    app: postgres # Doit correspondre au template.metadata.labels.app utilisé dans le deployement
+
   ports:
+    # Ingress appellera le service sur le "port:xxx"; Le service redirige vers le port interne targetPort: xxxx
     - port: 5432
+      targetPort: 5432
+      protocol: TCP

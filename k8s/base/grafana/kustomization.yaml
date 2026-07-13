@@ -41,4 +41,5 @@ configMapGenerator:
 resources:
   - pvc.yaml
   - service.yaml
+  - ingress.yaml
   - deployment.yaml

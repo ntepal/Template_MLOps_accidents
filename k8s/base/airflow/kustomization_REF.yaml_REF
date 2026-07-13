@@ -6,20 +6,33 @@ kind: Kustomization
 # comme le hash change, le/les pods concernés sot automatiquement réinitialisés
 # L'inconvénient est qu'on peut seulement les utiliser dans les autres répertoires
 # avec name-hash. Avec cette option, on disable le hash et ainsi on peut l'utiliser
-# partour dans le projet. L'inconvénient est que si modifie le config ou secret,
+# partour dans le projet. L'inconvénient est que si modifie le config ou secret, 
 # on doit réinitialiser manuellement. Mais au moins on sait que la modification
 # sera vu de tous après le reset de tous les pods
 generatorOptions:
   disableNameSuffixHash: true
-
+# NB: les xxxGenerator ne peuvent pas cohabiter avec configmap et secret
+# Ils sont préférés au fichiers configmap.yaml et secret.yaml construits manuellement
+# Le .env.config contient la partie du fichier .env en excluant les données sensibles
+# Ls données sensibles sont mises dans .env.secret par le Makefile
 configMapGenerator:
-  - name: evidently-config
+  - name: airflow-config
     envs:
       - .env.config
 
+  - name: airflow-gitsync-config
+    envs:
+      - .env.config.gitsync
+
+secretGenerator:
+  - name: airflow-secret
+    envs:
+      - .env.secret
+
 resources:
+  - service.yaml
   - pvc.yaml
-  - ui/service.yaml
-  - ui/ingress.yaml
-  - ui/deployment.yaml
-  - monitoring/deployment.yaml
+  - deployment-webserver.yaml
+  - deployment-scheduler.yaml
+  - deployment-worker.yaml
+  - deployment-flower.yaml

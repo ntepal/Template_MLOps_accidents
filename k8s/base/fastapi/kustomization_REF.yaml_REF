@@ -13,13 +13,16 @@ generatorOptions:
   disableNameSuffixHash: true
 
 configMapGenerator:
-  - name: evidently-config
+  - name: fastapi-config
     envs:
       - .env.config
 
+secretGenerator:
+  - name: fastapi-secret
+    envs:
+      - .env.secret
+
 resources:
+  - service.yaml
   - pvc.yaml
-  - ui/service.yaml
-  - ui/ingress.yaml
-  - ui/deployment.yaml
-  - monitoring/deployment.yaml
+  - deployment.yaml

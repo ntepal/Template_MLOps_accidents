@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: mlflow-ingress
+  annotations:
+    # 1. Réécriture du chemin (pour enlever /mlflow)
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # 2. Rate Limiting (Équivalent de zone=apilimit rate=10r/s burst=50)
+    # limit-rps: 10 correspond au "rate=10r/s"
+    # limit-burst-multiplier: 50 correspond au "burst=50"
+    # nodelay est activé par défaut dans ingress-nginx
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+    # 5 car il fait 5*rps = 50 (comme dans nginx)
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "5"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /mlflow(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: mlflow
+                port:
+                  number: 5000

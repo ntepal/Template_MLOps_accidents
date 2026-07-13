@@ -18,7 +18,7 @@ scrape_configs:
       # Il envoie la requête à nginx (passerelle) sur le port 80
       # qui est configuré pour tout écouter (listen 80)
       #- targets: ["nginx:80"]
-      - targets: ["prediction-api:8000"]
+      - targets: ["prediction_api:8000"]
     # A la réception des métriques de api,
     # il va mettre à jour sa base de données API
 

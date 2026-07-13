@@ -30,8 +30,11 @@ secretGenerator:
       - .env.secret
 
 resources:
-  - service.yaml
   - pvc.yaml
+  - service-webserver.yaml
+  - ingress-webserver.yaml
+  - service-flower.yaml
+  - ingress-flower.yaml
   - deployment-webserver.yaml
   - deployment-scheduler.yaml
   - deployment-worker.yaml

@@ -11,6 +11,7 @@ spec:
     matchLabels:
       app: airflow-webserver
 
+  # Donc l'ID du POD
   template:
     metadata:
       labels:

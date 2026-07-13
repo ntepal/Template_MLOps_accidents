@@ -2,13 +2,18 @@ apiVersion: v1
 kind: Service
 metadata:
   name: prometheus
-
 spec:
+  # Les services n'ont pas besoin d'être exposés directement sur Internet.
+  # Ils doivent simplement être accessibles par le contrôleur Ingress.
+  # C'est la configuration la plus sécurisée : si le service est en ClusterIP,
+  # un hacker ne peut pas attaquer directement le service en contournant l'Ingress.
+  type: ClusterIP
+
   selector:
-    app: prometheus
+    app: prometheus # Doit correspondre au template.metadata.labels.app utilisé dans le deployement
 
   ports:
-    - port: 9090
+    # Ingress appellera le service sur le "port:xxx"; Le service redirige vers le port interne targetPort: xxxx
+    - port: 80
       targetPort: 9090
-
-  type: ClusterIP
+      protocol: TCP

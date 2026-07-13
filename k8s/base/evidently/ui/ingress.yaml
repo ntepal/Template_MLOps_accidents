@@ -1,21 +1,34 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: evidently-ui-ingress
-  namespace: accidents-severity
+  name: evidently-ingress
   annotations:
-    # Très important pour que Nginx réécrive les URLs correctement
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    # 1. Réécriture du chemin devient inutile cat je mets / seulement
+    # nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # 2. Rate Limiting (Équivalent de zone=apilimit rate=10r/s burst=50)
+    # limit-rps: 10 correspond au "rate=10r/s"
+    # limit-burst-multiplier: 50 correspond au "burst=50"
+    # nodelay est activé par défaut dans ingress-nginx
+    nginx.ingress.kubernetes.io/limit-rps: "10"
+    # 2 car il fait 2*rps = 20 (comme dans nginx)
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "2"
+
 spec:
   ingressClassName: nginx
   rules:
-  - host: mondomaine.local
-    http:
-      paths:
-      - path: /evidently
-        pathType: Prefix
-        backend:
-          service:
-            name: evidently-ui
-            port:
-              number: 8000
+    - http:
+        paths:
+          # Priorité haute (le plus spécifique en premier)
+          - path: /api/version
+            pathType: Exact
+            backend:
+              service: { name: evidently-ui, port: { number: 8000 } }
+          - path: /api/projects
+            pathType: Exact
+            backend:
+              service: { name: evidently-ui, port: { number: 8000 } }
+          # Racine
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: evidently-ui, port: { number: 8000 } }
