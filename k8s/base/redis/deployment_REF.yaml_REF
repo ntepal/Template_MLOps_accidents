@@ -25,14 +25,6 @@ spec:
           image: redis:7
           imagePullPolicy: IfNotPresent
 
-          resources:
-            requests:
-              memory: "128Mi"  # Ce qu'il demande au démarrage
-              cpu: "100m"      # 0.1 vCPU
-            limits:
-              memory: "256Mi"  # Le plafond à ne pas dépasser
-              cpu: "250m"      # 0.25 vCPU maximum
-
           ports:
             - containerPort: 6379
 
@@ -62,3 +54,12 @@ spec:
               command: ["redis-cli", "ping"]
             periodSeconds: 10
             failureThreshold: 3
+
+          # RAM - CPU: 100m = 100milliCPU = 0.1CPU
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: airflow-webserver
+  name: airflow-flower
   labels:
-    app: airflow-webserver
+    app: airflow-flower
+
 spec:
   replicas: 1
 
   selector:
     matchLabels:
-      app: airflow-webserver
+      app: airflow-flower
 
-  # Donc l'ID du POD
   template:
     metadata:
       labels:
-        app: airflow-webserver
+        app: airflow-flower
 
     spec:
       # Comme dans le deployment de mlflow pour s'assurer des droits identiques partout
@@ -44,10 +44,6 @@ spec:
           image: registry.k8s.io/git-sync/git-sync:v4.1.0
           imagePullPolicy: IfNotPresent
 
-          securityContext:
-            runAsUser: 65533
-            runAsGroup: 65533
-
           envFrom:
             - configMapRef:
                 name: airflow-gitsync-config
@@ -57,7 +53,7 @@ spec:
               # Répertoire de travail du container GitSync
               mountPath: /git
 
-        - name: webserver
+        - name: flower
           image: docker.io/library/accidents_severity-airflow:1.0
           # Si absente alors on l'a récupère sur le docker hub
           # Evolution dans un env de prod: mettre en place le sytème
@@ -66,52 +62,43 @@ spec:
           # Configuration pour forcer l'utilisation de l'image locale
           imagePullPolicy: Never
 
-          resources:
-            requests:
-              memory: "512Mi"  # Ce qu'il demande au démarrage
-              cpu: "300m"      # 0.3 vCPU
-            limits:
-              memory: "512Mi"  # Le plafond à ne pas dépasser
-              cpu: "500m"      # 0.5 vCPU maximum
-
           command: ["bash", "-c"]
           args:
-            - airflow webserver
+            - airflow celery flower
 
           ports:
-            - containerPort: 8080
+            - containerPort: 5555
 
-          # Contient la configuration commune à plusieurs pods
           envFrom:
             - configMapRef:
                 name: airflow-config
             - secretRef:
                 name: airflow-secret
 
-          # Contient la configuration spécifique à ce pods
           env:
-            - name: AIRFLOW__WEBSERVER__PORT
-              value: "8080"
+            - name: FLOWER_URL_PREFIX
+              value: flower
 
-          startupProbe:
-            httpGet:
-              path: /airflow/health
-              port: 8080
-            periodSeconds: 10
-            failureThreshold: 30
+          # startupProbe: inutile car démarrage rapide
 
+          # Vérification périodique pour savoir si le pod peut recevoir du trafic
           readinessProbe:
             httpGet:
-              path: /airflow/health
-              port: 8080
-            periodSeconds: 10
-            failureThreshold: 3
+              path: /flower/
+              port: 5555
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
 
+          # Vérification périodique pour savoir si le pod est toujours vivant
           livenessProbe:
             httpGet:
-              path: /airflow/health
-              port: 8080
-            periodSeconds: 10
+              path: /flower/
+              port: 5555
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
             failureThreshold: 5
 
           volumeMounts:
@@ -120,8 +107,6 @@ spec:
               # Les volumes dags et plugins sont présent
               # grâce aux variables settées dans configmap.yaml
               mountPath: /git
-            - name: logs
-              mountPath: /app/logs
 
       volumes:
         - name: airflow-git-repo

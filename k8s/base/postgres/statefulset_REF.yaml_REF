@@ -21,14 +21,6 @@ spec:
           image: postgres:16.13-trixie
           imagePullPolicy: IfNotPresent
 
-          resources:
-            requests:
-              memory: "1Gi"  # Ce qu'il demande au démarrage
-              cpu: "500m"    # 0.5 vCPU
-            limits:
-              memory: "1Gi"  # Le plafond à ne pas dépasser
-              cpu: "500m"    # 0.5 vCPU maximum
-
           ports:
             - containerPort: 5432
 

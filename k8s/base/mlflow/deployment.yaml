@@ -69,6 +69,14 @@ spec:
           # Configuration pour forcer l'utilisation de l'image locale
           imagePullPolicy: Never
 
+          resources:
+            requests:
+              memory: "512Mi"  # Ce qu'il demande au démarrage
+              cpu: "300m"      # 0.3 vCPU
+            limits:
+              memory: "512Mi"  # Le plafond à ne pas dépasser
+              cpu: "500m"      # 0.5 vCPU maximum
+
           ports:
             - containerPort: 5000
 

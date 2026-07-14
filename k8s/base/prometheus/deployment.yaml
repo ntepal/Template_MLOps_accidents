@@ -24,6 +24,14 @@ spec:
           # Présent mais c'est la valeur par défaut car l'image demandé n'est pas latest
           imagePullPolicy: IfNotPresent
 
+          resources:
+            requests:
+              memory: "512Mi"  # Ce qu'il demande au démarrage
+              cpu: "300m"      # 0.3 vCPU
+            limits:
+              memory: "512Mi"  # Le plafond à ne pas dépasser
+              cpu: "500m"      # 0.5 vCPU maximum
+
           args:
             - --config.file=/etc/prometheus/prometheus.yml
             - --storage.tsdb.path=/prometheus

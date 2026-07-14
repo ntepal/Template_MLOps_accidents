@@ -1,27 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: airflow-worker
+  name: airflow-scheduler
   labels:
-    app: airflow-worker
-
+    app: airflow-webserver
 spec:
   replicas: 1
 
   selector:
     matchLabels:
-      app: airflow-worker
+      app: airflow-scheduler
 
   template:
     metadata:
       labels:
-        app: airflow-worker
+        app: airflow-scheduler
 
     spec:
       # Comme dans le deployment de mlflow pour s'assurer des droits identiques partout
       #securityContext:
         #runAsUser: 1000
-         # Le Dokcerfile le fait en root
+        # Le Dokcerfile le fait en root
         #runAsGroup: 0
         #fsGroup: 0
 
@@ -44,10 +43,6 @@ spec:
           image: registry.k8s.io/git-sync/git-sync:v4.1.0
           imagePullPolicy: IfNotPresent
 
-          securityContext:
-            runAsUser: 65533
-            runAsGroup: 65533
-
           envFrom:
             - configMapRef:
                 name: airflow-gitsync-config
@@ -57,7 +52,7 @@ spec:
               # Répertoire de travail du container GitSync
               mountPath: /git
 
-        - name: worker
+        - name: scheduler
           image: docker.io/library/accidents_severity-airflow:1.0
           # Si absente alors on l'a récupère sur le docker hub
           # Evolution dans un env de prod: mettre en place le sytème
@@ -66,23 +61,9 @@ spec:
           # Configuration pour forcer l'utilisation de l'image locale
           imagePullPolicy: Never
 
-          resources:
-            requests:
-              memory: "512Mi"  # Ce qu'il demande au démarrage
-              cpu: "300m"      # 0.3 vCPU
-            limits:
-              memory: "512Mi"  # Le plafond à ne pas dépasser
-              cpu: "500m"      # 0.5 vCPU maximum
-
           command: ["bash", "-c"]
           args:
-            - |
-              # On utilise le chemin complet vers l'exécutable celery trouvé dans le conteneur
-              # On définit le nom du worker dynamiquement
-              exec /home/airflow/.local/bin/celery --app airflow.providers.celery.executors.celery_executor.app worker --hostname="worker@$HOSTNAME" --loglevel=info
-              #exec /app/.venv/bin/celery --app airflow.providers.celery.executors.celery_executor.app worker --hostname="worker@$HOSTNAME" --loglevel=info
-          #  - sleep 3600
-          #  - airflow celery worker
+            - airflow scheduler
 
           envFrom:
             - configMapRef:
@@ -93,41 +74,38 @@ spec:
           env:
             - name: AIRFLOW__CORE__EXECUTOR
               value: CeleryExecutor
-            - name: HOSTNAME
+            - name: AIRFLOW_HOSTNAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
-            # Cette variable force le nom du worker Celery
-            - name: CELERY_WORKER_NAME
-              value: "worker@$HOSTNAME"
 
+          # startupProbe: inutile car démarrage rapide
+
+          # Vérification périodique pour savoir si le pod peut recevoir du trafic
           readinessProbe:
+            # NB: HOSTNAME est fourni automatiquement
             exec:
               command:
-                - /bin/sh
+                - bash
                 - -c
-                - /home/airflow/.local/bin/celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "worker@$HOSTNAME"
-                #- /app/.venv/bin/celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "worker@$HOSTNAME"
-                #- celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$AIRFLOW_HOSTNAME"
+                - airflow jobs check --job-type SchedulerJob --hostname "$AIRFLOW_HOSTNAME"
             initialDelaySeconds: 60
             periodSeconds: 30
-            timeoutSeconds: 30
+            timeoutSeconds: 15
             failureThreshold: 5
 
           # Vérification périodique pour savoir si le pod est toujours vivant
-          # Donc comme bonne pratique, vérifier si le process est toujours vivant
-          # pgrep n'est pas supporté
+          # Donc comme bonne pratique, remplacer la commande qui était la même que dans
+          # readinessProbe par une commande qui ne fait que vérifier si le process est toujours vivant
           livenessProbe:
             exec:
               command:
-                - /bin/sh
+                - bash
                 - -c
-                - /home/airflow/.local/bin/celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "worker@$HOSTNAME"
-                #- /app/.venv/bin/celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "worker@$HOSTNAME"
-                #- celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$AIRFLOW_HOSTNAME"
+                - airflow jobs check --job-type SchedulerJob --hostname "$AIRFLOW_HOSTNAME"
             initialDelaySeconds: 60
             periodSeconds: 60
-            timeoutSeconds: 30
+            timeoutSeconds: 15
             failureThreshold: 5
 
           volumeMounts:
