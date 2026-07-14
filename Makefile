@@ -287,9 +287,6 @@ install: ## [INIT] Installation/Initialisation complète du projet
 	fi
 	@echo "✅ Clés DagsHub détectées avec succès et activées !"
 
-	@# Préparation système (Swap) - Maintenant qu'on sait qu'on est autorisé à avancer
-	@$(MAKE) -s setup-swap
-
 	@# **************************************************************************************************************
 	@# 0.bis Vérification du contenu du fichier daemon.json utilisé par le service cadvisor pour le dahsboard grafana
 	@# **************************************************************************************************************
@@ -1413,6 +1410,13 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 	@##$(MAKE) -s docker_check_port_free
 	@##$(MAKE) -s docker_ssl_prep
 	@##$(MAKE) -s setup-permissions
+
+	@# Préparation système (Swap) - Maintenant qu'on sait qu'on est autorisé à avancer
+	@echo ""
+	@echo "======================================================================================"
+	@echo "💡 CREER LE SWAP 4GO AVANT DE LANCER LES SERVICES POUR EVITER LA SATURATION CPU A 100%"
+	@$(MAKE) -s setup-swap
+	@echo "======================================================================================"
 
 	@echo ""
 	@echo "======================================================================"

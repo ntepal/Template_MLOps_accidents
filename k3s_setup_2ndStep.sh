@@ -51,6 +51,15 @@ echo "👉👉👉 cmd: kubectl get pods -A -o wide"
 kubectl get pods -A -o wide
 
 echo ""
+echo "//////////////////////////////////////////////////////////////////////////////////////////////////////"
+echo "Vérification de l'absence de Traefik car il n'est plus installé avec k3"
+echo "--- Désactivation de Traefik (natif K3s) pour laisser place à Nginx Ingress qui est plus MLOPS PRO ---"
+echo "///////////////////////////////////////////////////x///////////////////////////////////////////////////"
+echo ""
+echo "👉👉👉 cmd: kubectl get pods -A  ==> on NE doit PLUS voir traefik-xxxxxxxxxx-xxxxx"
+kubectl get pods -A
+
+echo ""
 echo "/////////////////////////////////////////////////////////"
 echo "✅✅✅ --- Installation terminée avec succès ! ---"
 echo "✅✅✅ On peut maintenant utiliser les commmandes kubectl"
