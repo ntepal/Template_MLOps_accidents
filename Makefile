@@ -23,6 +23,7 @@ SHELL := /bin/bash
 .PHONY: kubernetes-build kubernetes-start kubernetes-migrate-image kubernetes-migrate-image-fast kubernetes-create-alias-images
 .PHONY: kubernetes-clean-all kubernetes-clean kubernetes-reset-cluster
 .PHONY: kubernetes-migrate-image-from-service kubernetes-migrate-image-not-from-service
+.PHONY: setup-swap
 
 # Raccourci : taper juste "make" lancera la liste des commandes du Makefile
 .DEFAULT_GOAL := help
@@ -221,6 +222,39 @@ setup-permissions:
 	@sudo chown -R $(USER_ID):$(GROUP_ID) .
 	@echo "✅ Propriété restaurée avec succès."
 
+
+
+# =============================================================================================================
+# --- SWAP DE 4GO POUR NE PAS SATURER LA RAM ET GENERER DES LENTEURS QUI BLOQUENT LE DEMARRAGE DES SERVICES ---
+# =============================================================================================================
+setup-swap:
+	@echo "🔍 Configuration du Swap (4Go) pour stabiliser le système..."
+	@# Utilisation de 4G pour le swapfile
+	@# On vérifie la taille actuelle pour éviter de refaire l'opération inutilement
+	@if [ -f /swapfile ] && [ $$(stat -c%s /swapfile) -eq 4294967296 ]; then \
+		echo "✅ Swap de 4Go déjà configuré et actif."; \
+	else \
+		echo "🛠️ Mise en place du swap de 4Go..."; \
+		sudo swapoff /swapfile || true; \
+		sudo rm -f /swapfile; \
+		sudo fallocate -l 4G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=4096; \
+		sudo chmod 600 /swapfile; \
+		sudo mkswap /swapfile; \
+		sudo swapon --discard /swapfile; \
+		echo "🚀 Swap de 4Go activé."; \
+	fi
+
+	@# Gestion de fstab pour la persistance
+	@if ! grep -q "/swapfile" /etc/fstab; then \
+		echo "/swapfile none swap sw,discard 0 0" | sudo tee -a /etc/fstab; \
+		echo "✅ Ajouté à /etc/fstab pour le redémarrage."; \
+	else \
+		echo "✅ Configuration fstab déjà présente."; \
+	fi
+	@free -h
+
+
+
 # =================================================
 # --- SETUP COMPLET (À lancer la première fois) ---
 # =================================================
@@ -252,6 +286,9 @@ install: ## [INIT] Installation/Initialisation complète du projet
 		exit 1; \
 	fi
 	@echo "✅ Clés DagsHub détectées avec succès et activées !"
+
+        @# Préparation système (Swap) - Maintenant qu'on sait qu'on est autorisé à avancer
+	@$(MAKE) -s setup-swap
 
 	@# **************************************************************************************************************
 	@# 0.bis Vérification du contenu du fichier daemon.json utilisé par le service cadvisor pour le dahsboard grafana
