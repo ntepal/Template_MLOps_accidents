@@ -287,7 +287,7 @@ install: ## [INIT] Installation/Initialisation complète du projet
 	fi
 	@echo "✅ Clés DagsHub détectées avec succès et activées !"
 
-        @# Préparation système (Swap) - Maintenant qu'on sait qu'on est autorisé à avancer
+	@# Préparation système (Swap) - Maintenant qu'on sait qu'on est autorisé à avancer
 	@$(MAKE) -s setup-swap
 
 	@# **************************************************************************************************************
