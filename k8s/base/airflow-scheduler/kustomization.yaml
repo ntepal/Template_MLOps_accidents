@@ -20,26 +20,19 @@ configMapGenerator:
     options:
       disableNameSuffixHash: true
     envs:
-      - .env.config
+      - ../airflow-common/.env.config
 
   - name: airflow-gitsync-config
     options:
       disableNameSuffixHash: true
     envs:
-      - .env.config.gitsync
+      - ../airflow-common/.env.config.gitsync
 
 secretGenerator:
   - name: airflow-secret
     envs:
-      - .env.secret
+      - ../airflow-common/.env.secret
 
 resources:
-  - pvc.yaml
-  - service-webserver.yaml
-  - ingress-webserver.yaml
-  - service-flower.yaml
-  - ingress-flower.yaml
-  - deployment-webserver.yaml
+  - ../airflow-common/pvc.yaml
   - deployment-scheduler.yaml
-  - deployment-worker.yaml
-  - deployment-flower.yaml

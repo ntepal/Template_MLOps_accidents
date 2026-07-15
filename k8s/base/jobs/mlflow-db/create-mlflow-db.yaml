@@ -1,0 +1,58 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-mlflow-db
+spec:
+  template:
+    spec:
+      # Comme dans le deployment de mlflow pour s'assurer des droits identiques partout
+      #securityContext:
+      #  runAsUser: 1000
+      #  runAsGroup: 1000
+      #  fsGroup: 1000
+
+      restartPolicy: OnFailure
+
+      initContainers:
+        # On ne met pas -U airflow dans le until car il n'est pas encore créé
+        # C'est justement le init-job qui le crée
+        - name: wait-for-postgres
+          image: postgres:16.13-trixie
+          imagePullPolicy: IfNotPresent
+
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h postgres -p 5432; do
+                echo "⏳ Waiting for postgres..."
+                sleep 2
+              done
+              echo "✅ Postgres is ready"
+
+      containers:
+      - name: create-mlflow-db
+        image: postgres:16.13-trixie
+        imagePullPolicy: IfNotPresent
+
+        env:
+        # On récupère l'info grâce au secret.yaml dans Postgres
+        # NB: si j'avais pris l'optio .env.secret, alors name: postgres-secret-xxxx
+        # et donc inutilisable ici car je ne connais pas le hash (xxxx)
+        # .env.secret intéressant car si on le modife, le pod est automatiquement recréé
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: POSTGRES_PASSWORD
+
+        command:
+          - sh
+          - -c
+          - |
+            psql \
+              -h postgres \
+              -U airflow \
+              -d postgres \
+              -c "CREATE DATABASE mlflow OWNER airflow;" \
+            || echo "Database mlflow already exists."

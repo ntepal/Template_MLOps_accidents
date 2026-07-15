@@ -74,8 +74,8 @@ spec:
               memory: "512Mi"  # Ce qu'il demande au démarrage
               cpu: "300m"      # 0.3 vCPU
             limits:
-              memory: "512Mi"  # Le plafond à ne pas dépasser
-              cpu: "500m"      # 0.5 vCPU maximum
+              memory: "2Gi"  # Le plafond à ne pas dépasser
+              cpu: "1000m"      # 0.5 vCPU maximum
 
           ports:
             - containerPort: 5000

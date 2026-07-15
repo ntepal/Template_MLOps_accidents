@@ -24,7 +24,6 @@ SHELL := /bin/bash
 .PHONY: kubernetes-clean-all kubernetes-clean kubernetes-reset-cluster
 .PHONY: kubernetes-migrate-image-from-service kubernetes-migrate-image-not-from-service
 .PHONY: setup-swap
-.PHONY: kubernetes-deploy-service kubernetes-deploy-job kubernetes-ubuntu-usage
 
 # Raccourci : taper juste "make" lancera la liste des commandes du Makefile
 .DEFAULT_GOAL := help
@@ -1400,55 +1399,6 @@ docker-full-start-WoInitialTrain_fast: ## [PROD][DOCKER] Démarrage simultannés
 	@docker volume ls
 
 
-# Usage : make deploy-service SERVICE=mon-service TIMEOUT=300
-kubernetes-deploy-service:
-	@echo " 🚀🚀🚀🚀 ---- DEPLOIEMENT DU SERVICE $(SERVICE) ----"
-	@#kubectl apply -k k8s/base/$(SERVICE)/ -n accidents-severity
-	@# Pour mémoire certains services vont chercher les fichiers dans d'autres répertoires et pour éviter les refus pour cause de sécurité on rajoute le load restrictor
-	@kubectl kustomize k8s/base/$(SERVICE)/ --load-restrictor LoadRestrictionsNone | kubectl apply -f - -n accidents-severity
-
-	@#echo " ⏳ ATTENTE DU ROLLOUT (timeout=$(TIMEOUT))..."
-	@# rollout status renvoie un code erreur (1) si le déploiement échoue
-	@#kubectl rollout status deployment/$(SERVICE) -n accidents-severity --timeout=$(TIMEOUT)
-
-	@# WARNING: Test si c'est un statefulset, sinon on part du principe que c'est un deployment
-	@# On utilise des $$ pour échapper le $ dans le Makefile
-	@if kubectl get statefulset $(SERVICE) -n accidents-severity >/dev/null 2>&1; then \
-		TYPE="statefulset/$(SERVICE)"; \
-	else \
-		TYPE="deployment/$(SERVICE)"; \
-	fi; \
-	echo " ⏳ ATTENTE DU ROLLOUT sur $$TYPE (timeout=$(TIMEOUT))..."; \
-	kubectl rollout status $$TYPE -n accidents-severity --timeout=$(TIMEOUT)
-
-	@if [ $$? -eq 0 ]; then \
-		echo " ✅ SERVICE $(SERVICE) READY ==> ON CONTINUE "; \
-	else \
-		echo " ❌ ECHEC DU SERVICE $(SERVICE) : timeout atteint. Arrêt."; \
-		exit 1; \
-	fi
-	$(MAKE) -s kubernetes-ubuntu-usage
-
-# Usage : make deploy-job JOB=nom-du-fichier TIMEOUT=300
-kubernetes-deploy-job:
-	@echo " 🚀 LANCEMENT JOB: $(JOB) depuis $(DIR)"
-	@#kubectl apply -k k8s/base/jobs/$(DIR) -n accidents-severity
-	@# Pour mémoire le airflow init et set vont chercher les fichiers config et secret dans airflow et refus pour cause de sécurité
-	@# On ajoute --load-restrictor none pour permettre de lire les fichiers en dehors du dossier
-	@kubectl kustomize k8s/base/jobs/$(DIR) --load-restrictor LoadRestrictionsNone | kubectl apply -f - -n accidents-severity
-
-	@echo " ⏳ ATTENTE COMPLETION (timeout=$(TIMEOUT))..."
-	@# On enchaîne tout dans le même bloc shell pour conserver la valeur de $?
-	@kubectl wait --for=condition=complete --timeout=$(TIMEOUT) job/$(JOB) -n accidents-severity; \
-	RET_CODE=$$?; \
-	if [ $$RET_CODE -eq 0 ]; then \
-		echo " ✅ JOB $(JOB) COMPLETED ==> ON CONTINUE "; \
-	else \
-		echo " ❌ ECHEC DU JOB $(JOB) : code erreur $$RET_CODE. Arrêt."; \
-		exit 1; \
-	fi
-	@$(MAKE) -s kubernetes-ubuntu-usage
-
 # Lancer tout l'écosystème conteneurisé sur kubernetes
 # L'option -d (--detach) pour le faire tourner en tâche de fond (daemon mode)
 kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Postgres et Redis, puis Airflow-Init et enfin tous les autres sans Initial Train
@@ -1518,53 +1468,33 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 
 	@echo ""
 	@echo "🚀 Déploiement..."
-	@# kubectl apply -k k8s/
-	@echo "📍📍📍 ---- LANCER TOUS LES SERVICES SIMULTANNEMENT RALENTIT LA VM (CPU=100%) PAR MANQUE DE RAM ---"
-	@echo "📍📍📍 ---- LE WORK AROUND EST DE LANCER UN SERVICE A LA FOIS ---"
-	@echo " ---- On lance le namespace pour l'initialisation ----"
-	kubectl apply -f k8s/namespace.yaml
-	@echo " ---- On lance les services et jobs dans un ordre bien précis ----"
-	$(MAKE) -s kubernetes-deploy-service SERVICE=postgres TIMEOUT=300s
-	$(MAKE) -s kubernetes-deploy-service SERVICE=redis TIMEOUT=300s
-	$(MAKE) -s kubernetes-deploy-job JOB=create-mlflow-db TIMEOUT=300s DIR=mlflow-db
-	$(MAKE) -s kubernetes-deploy-job JOB=airflow-init TIMEOUT=600s DIR=airflow-init
-	$(MAKE) -s kubernetes-deploy-job JOB=airflow-set-variables TIMEOUT=600s DIR=airflow-set
-	$(MAKE) -s kubernetes-deploy-service SERVICE=mlflow TIMEOUT=300s
-	$(MAKE) -s kubernetes-deploy-service SERVICE=airflow-webserver TIMEOUT=600s
-	$(MAKE) -s kubernetes-deploy-service SERVICE=airflow-scheduler TIMEOUT=600s
-	$(MAKE) -s kubernetes-deploy-service SERVICE=airflow-worker TIMEOUT=600s
-	$(MAKE) -s kubernetes-deploy-service SERVICE=airflow-flower TIMEOUT=600s
-	$(MAKE) -s kubernetes-deploy-service SERVICE=fastapi TIMEOUT=300s
-	$(MAKE) -s kubernetes-deploy-service SERVICE=prometheus TIMEOUT=300s
-	$(MAKE) -s kubernetes-deploy-service SERVICE=grafana TIMEOUT=300s
-	$(MAKE) -s kubernetes-deploy-service SERVICE=node-exporter TIMEOUT=300s
-	$(MAKE) -s kubernetes-deploy-service SERVICE=cadvisor TIMEOUT=300s
-	$(MAKE) -s kubernetes-deploy-service SERVICE=evidently TIMEOUT=300s
+	kubectl apply -k k8s/
 
-	@# ===== DEBUT COMMENTAIRE - TOUT EST MIS EN COMMENTAIRE CAR DEJA FAIT JUSTE AVANT ====
-	@#echo ""
+	@echo ""
+	@echo "⏳ Jobs critiques..."
+	kubectl wait job/create-mlflow-db -n accidents-severity --for=condition=complete --timeout=300s || true
+	kubectl wait job/airflow-init -n accidents-severity --for=condition=complete --timeout=600s || true
+	@echo ""
 	@echo "======================================================================"
 	@echo "TRAIN_YEAR créé et initialisé à 2019 dans Admin/Variable du Webserver"
 	@# Dans le service airflow-worker, on utilise l'outil airflow (CLI) et on
 	@# lance la commande variables set pour créer TRAIN_YEAR et l'initialisé à 2019
-	@#kubectl wait job/airflow-set-variables -n accidents-severity --for=condition=complete --timeout=600s || true
-	@#kubernetes-deploy-job airflow-set-variables 600s
-	@#echo "======================================================================"
+	kubectl wait job/airflow-set-variables -n accidents-severity --for=condition=complete --timeout=600s || true
+	@echo "======================================================================"
 
-	@#echo ""
-	@#echo "⏳ Apps..."
+	@echo ""
+	@echo "⏳ Apps..."
 	@#kubectl wait --for=condition=ready pod -l app=prediction-api -n accidents-severity --timeout=300s || true
 	@#kubectl wait --for=condition=ready pod -l app=mlflow -n accidents-severity --timeout=300s || true
 	@#kubectl wait --for=condition=ready pod -l app=airflow-webserver -n accidents-severity --timeout=600s || true
 	@# Mieux car vérifie le Deployment, les ReplicaSets, que tous les pods sont stables, que le rollout est terminé
-	@#kubectl rollout status deployment/prediction-api -n accidents-severity --timeout=300s
-	@#kubectl rollout status deployment/mlflow -n accidents-severity --timeout=300s
-	@#kubectl rollout status deployment/airflow-webserver -n accidents-severity --timeout=600s
+	kubectl rollout status deployment/prediction-api -n accidents-severity --timeout=300s
+	kubectl rollout status deployment/mlflow -n accidents-severity --timeout=300s
+	kubectl rollout status deployment/airflow-webserver -n accidents-severity --timeout=600s
 
-	@@echo ""
-	@#echo "📡 Ingress..."
-	@#kubectl get ingress -n accidents-severity
-	@# ===== FIN COMMENTAIRE - TOUT EST MIS EN COMMENTAIRE CAR DEJA FAIT JUSTE AVANT ====
+	@echo ""
+	@echo "📡 Ingress..."
+	kubectl get ingress -n accidents-severity
 
 	@echo ""
 	@echo "🚀 Cluster ready"
@@ -1613,8 +1543,7 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 
 	@echo ""
 	@echo "Vérification des volumes après le full restart"
-	@#docker volume ls
-	@kubectl get pvc -n accidents-severity
+	@docker volume ls
 
 drift-on: ## [PROD][DOCKER] Modifier le fastapi_data.csv pour activer le drift dans EVIDENTLY et générer l'alarme dans GRAFANA
 	@echo "Sauvegarder le fastapi_data.csv"
@@ -1673,18 +1602,6 @@ ubuntu-usage: ## [PROD][DOCKER] UBUNTU : VERIF RAM, DISK, CPU
 	@echo "Consommation RAM par service via la commande: docker stats --no-stream"
 	@docker stats --no-stream
 
-kubernetes-ubuntu-usage: ## [PROD][DOCKER] UBUNTU : VERIF RAM, DISK, CPU
-	@echo "--- RAM ---"
-	@free -h
-	@echo ""
-	@echo "--- DISK ---"
-	@df -h / | tail -n 1
-	@echo ""
-	@echo "--- CPU LOAD ---"
-	@uptime
-	@echo ""
-	@echo "--- CPU USAGE ---"
-	@top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1"%"}'
 
 # ================================================================================================
 # ------------------------------------ DOCKER SERVICE DEBUG --------------------------------------

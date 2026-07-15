@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: airflow-set-variables
+  namespace: accidents-severity
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+
+      containers:
+        - name: airflow-cli
+          image: docker.io/library/accidents_severity-airflow:1.0
+          imagePullPolicy: Never
+
+          command: ["/bin/sh", "-c"]
+          #args: ["echo 'Waiting for debug...'; sleep 3600"]
+          #command: ["bash", "-c"]
+          args:
+            - |
+              airflow variables set TRAIN_YEAR 2019
+          envFrom:
+            - configMapRef:
+                name: airflow-config
