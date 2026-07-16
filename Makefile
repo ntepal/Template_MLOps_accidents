@@ -678,7 +678,7 @@ push: ## [SYNC] Synchronisation bidirectionnelle : Git (Code) + DagsHub (Data/Mo
 docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou degub (non sécurisé) NB: .env configuré
 	@# Port externe 80 car port par défaut pour le navigateur et donc pas besoin de l'ajouter dans le navigateur
 	@rm -f .env
-	@rm -f k8s/base/airflow/.env.secret
+	@rm -f k8s/base/airflow-common/.env.secret
 	@rm -f k8s/base/fastapi/.env.secret
 	@rm -f k8s/base/grafana/.env.config
 	@rm -f k8s/base/evidently/.env.config
@@ -692,7 +692,7 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 	@echo "🔑 Génération d'une nouvelle clé Fernet de sécurité..."
 	@FERNET=$$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"); \
 	echo "AIRFLOW_FERNET_KEY=$$FERNET" > .env; \
-	echo "AIRFLOW_FERNET_KEY=$$FERNET" > k8s/base/airflow/.env.secret; \
+	echo "AIRFLOW_FERNET_KEY=$$FERNET" > k8s/base/airflow-common/.env.secret; \
 	echo ""
 	echo "👤 Configuration de l'utilisateur Airflow (valider vide pour 'admin')"; \
 	read -p "👉 Airflow Username [admin]: " user; \
@@ -700,9 +700,9 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 	read -p "👉 Airflow Password [admin]: " pass; \
 	pass=$${pass:-admin}; \
 	echo "_AIRFLOW_WWW_USER_USERNAME=$$user" >> .env; \
-	echo "_AIRFLOW_WWW_USER_USERNAME=$$user" >> k8s/base/airflow/.env.secret; \
+	echo "_AIRFLOW_WWW_USER_USERNAME=$$user" >> k8s/base/airflow-common/.env.secret; \
 	echo "_AIRFLOW_WWW_USER_PASSWORD=$$pass" >> .env; \
-	echo "_AIRFLOW_WWW_USER_PASSWORD=$$pass" >> k8s/base/airflow/.env.secret; \
+	echo "_AIRFLOW_WWW_USER_PASSWORD=$$pass" >> k8s/base/airflow-common/.env.secret; \
 	mode=""; \
 	while [ "$$mode" != "prod" ] && [ "$$mode" != "debug" ]; do \
 		echo "💡 prod (production): mode sécurisé SSL/HTTPS" ; \
@@ -735,11 +735,11 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 	@echo "PROJECT_NAME=$$PROJECT_NAME" >> .env
 	@echo "PROJECT_NAME=$$PROJECT_NAME" >> k8s/base/evidently/.env.config
 	@echo "DAGSHUB_REPO_NAME=$$DAGSHUB_REPO_NAME" >> .env
-	@echo "DAGSHUB_USER=$(DAGSHUB_USER)" >> k8s/base/airflow/.env.secret
-	@echo "DAGSHUB_S3_ACCESS_KEY_ID=$(DAGSHUB_S3_ACCESS_KEY_ID)" >> k8s/base/airflow/.env.secret
-	@echo "DAGSHUB_S3_SECRET_ACCESS_KEY=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/base/airflow/.env.secret
-	@echo "MLFLOW_TRACKING_USERNAME=$(DAGSHUB_USER)" >> k8s/base/airflow/.env.secret
-	@echo "MLFLOW_TRACKING_PASSWORD=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/base/airflow/.env.secret
+	@echo "DAGSHUB_USER=$(DAGSHUB_USER)" >> k8s/base/airflow-common/.env.secret
+	@echo "DAGSHUB_S3_ACCESS_KEY_ID=$(DAGSHUB_S3_ACCESS_KEY_ID)" >> k8s/base/airflow-common/.env.secret
+	@echo "DAGSHUB_S3_SECRET_ACCESS_KEY=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/base/airflow-common/.env.secret
+	@echo "MLFLOW_TRACKING_USERNAME=$(DAGSHUB_USER)" >> k8s/base/airflow-common/.env.secret
+	@echo "MLFLOW_TRACKING_PASSWORD=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/base/airflow-common/.env.secret
 	@echo "DAGSHUB_USER=$(DAGSHUB_USER)" > k8s/base/fastapi/.env.secret
 	@echo "DAGSHUB_S3_ACCESS_KEY_ID=$(DAGSHUB_S3_ACCESS_KEY_ID)" >> k8s/base/fastapi/.env.secret
 	@echo "DAGSHUB_S3_SECRET_ACCESS_KEY=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/base/fastapi/.env.secret
@@ -1415,6 +1415,8 @@ kubernetes-deploy-service:
 	@# On utilise des $$ pour échapper le $ dans le Makefile
 	@if kubectl get statefulset $(SERVICE) -n accidents-severity >/dev/null 2>&1; then \
 		TYPE="statefulset/$(SERVICE)"; \
+	elif [ "$(SERVICE)" = "evidently" ]; then \
+		TYPE="deployment/evidently-ui"; \
 	else \
 		TYPE="deployment/$(SERVICE)"; \
 	fi; \
@@ -1534,7 +1536,7 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 	$(MAKE) -s kubernetes-deploy-service SERVICE=airflow-scheduler TIMEOUT=600s
 	$(MAKE) -s kubernetes-deploy-service SERVICE=airflow-worker TIMEOUT=600s
 	$(MAKE) -s kubernetes-deploy-service SERVICE=airflow-flower TIMEOUT=600s
-	$(MAKE) -s kubernetes-deploy-service SERVICE=fastapi TIMEOUT=300s
+	$(MAKE) -s kubernetes-deploy-service SERVICE=fastapi TIMEOUT=600s
 	$(MAKE) -s kubernetes-deploy-service SERVICE=prometheus TIMEOUT=300s
 	$(MAKE) -s kubernetes-deploy-service SERVICE=grafana TIMEOUT=300s
 	$(MAKE) -s kubernetes-deploy-service SERVICE=node-exporter TIMEOUT=300s
@@ -1585,8 +1587,8 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 		if [ "$$NGINX_PORT_OUT" = "443" ]; then \
 			echo "------------------------------------------------------------------------------------"; \
 			echo "💡 POUR MACHINE DISTANTE - MODE SECURISE (HTTPS) - SERVICES ACCESSIBLES (VIA NGINX):"; \
-			echo "👉 API Principale          : https://<IP_VM>/api/"; \
-			echo "👉 SWAGGER (Doc)           : https://<IP_VM>/api/docs"; \
+			echo "👉 API Principale          : https://<IP_VM>/fastapi/"; \
+			echo "👉 SWAGGER (Doc)           : https://<IP_VM>/fastapi/docs"; \
 			echo "👉 MLflow UI               : https://<IP_VM>/mlflow/"; \
 			echo "👉 Airflow (Orchestrateur) : https://<IP_VM>/airflow/"; \
 			echo "👉 Airflow (Orchestrateur) : https://<IP_VM>/flower/"; \
@@ -1597,8 +1599,8 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 		else \
 			echo "------------------------------------------------------------------------------------"; \
 			echo "💡 POUR MACHINE DISTANTE - MODE NON SECURISE - SERVICES ACCESSIBLES (VIA NGINX):"; \
-			echo "👉 API Principale          : http://<IP_VM>/api/"; \
-			echo "👉 SWAGGER (Doc)           : http://<IP_VM>/api/docs"; \
+			echo "👉 API Principale          : http://<IP_VM>/fastapi/"; \
+			echo "👉 SWAGGER (Doc)           : http://<IP_VM>/fastapi/docs"; \
 			echo "👉 MLflow UI               : http://<IP_VM>/mlflow/"; \
 			echo "👉 Airflow (Orchestrateur) : http://<IP_VM>/airflow/"; \
 			echo "👉 Airflow (Orchestrateur) : http://<IP_VM>/flower/"; \

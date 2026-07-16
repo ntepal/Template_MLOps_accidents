@@ -153,7 +153,7 @@ x-airflow-common: &airflow-common
   networks:
     - airflow-net
     - mlflow-net
-    - api-net
+    - fastapi-net
   volumes:
     #- ./src:/app/src
     # utilisé dans le dag par le BashOperator pour transmettre la variable à tous les DockerOperators
@@ -541,7 +541,7 @@ services:
     networks:
       # DHCP Docker alloue une @IP, ex: 172.1X.0.1
       # DNS Docker lui associe le nom qui est dans le container_name ou le nom de service si absent
-      - api-net
+      - fastapi-net
       # DHCP Docker alloue une @IP, ex: 172.1Y.0.3
       # DNS Docker lui associe le nom qui est dans le container_name ou le nom de service si absent
       - mlflow-net
@@ -581,7 +581,7 @@ services:
       - --web.route-prefix=/prometheus
       - --web.external-url=${NGINX_PROTOCOL}://${PROJECT_IP}/prometheus/
     networks:
-      - api-net
+      - fastapi-net
     # fonction native de Docker qui crée une passerelle spéciale et ultra-stable vers le localhost de la machine.
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -615,7 +615,7 @@ services:
       #fix-vol-perm-grafana: { condition: service_completed_successfully }
       prometheus: { condition: service_healthy }
     networks:
-      - api-net
+      - fastapi-net
     healthcheck:
       <<: *standard-healthcheck
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/grafana/login"]
@@ -646,7 +646,7 @@ services:
     depends_on:
       prometheus: { condition: service_healthy }
     networks:
-      - api-net
+      - fastapi-net
     healthcheck:
       <<: *standard-healthcheck
       test: ["CMD-SHELL", "wget --spider -q http://localhost:9100/metrics"]
@@ -668,7 +668,7 @@ services:
     ports:
       - "127.0.0.1:8082:8080" # <-- 8082 pour éviter le conflit avec airflow
     networks:
-      - api-net
+      - fastapi-net
     healthcheck:
       <<: *standard-healthcheck
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/healthz"]
@@ -705,9 +705,9 @@ services:
       - ./src:/app/src
       - ./data:/app/data
     depends_on:
-      api: { condition: service_healthy }
+      fastapi: { condition: service_healthy }
     networks:
-      - api-net
+      - fastapi-net
     healthcheck:
       <<: *standard-healthcheck
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://0.0.0.0:8000/').read()"]
@@ -732,7 +732,7 @@ services:
       # Timer pour relancer périodiquement le monitoring (temps en secondes)
       - MONITOR_DAEMON_TIMER=30
     depends_on:
-      api: { condition: service_healthy }
+      fastapi: { condition: service_healthy }
     healthcheck:
       <<: *standard-healthcheck
       test: ["CMD", "python3", "/app/src/monitoring/check_health.py"]
@@ -761,7 +761,7 @@ services:
     networks:
       # DHCP Docker alloue une @IP, ex: 172.1X.0.0
       # DNS Docker lui associe le nom qui est dans le container_name ou le nom de service si absent
-      - api-net
+      - fastapi-net
       # DHCP Docker alloue une @IP, ex: 172.1Y.0.0
       # DNS Docker lui associe le nom qui est dans le container_name ou le nom de service si absent
       - mlflow-net
@@ -780,7 +780,7 @@ services:
     depends_on:
       #INUTILE CAR SEULE certs EST PARTAGé ET EN READONLY fix-vol-perm-ngixn: { condition: service_completed_successfully }
       # Vérifier que chaque service est bien OK sur le port correspondant
-      api: { condition: service_healthy }
+      fastapi: { condition: service_healthy }
       mlflow: { condition: service_healthy }
       airflow-webserver: { condition: service_healthy }
       airflow-flower: { condition: service_healthy }
@@ -800,9 +800,9 @@ networks:
     driver: bridge
     # Ce nom donné par défaut mais en l'explicitant, on enlève le doute et on justifie le nom
     name: ${PROJECT_NAME}_mlflow-net
-  api-net:
+  fastapi-net:
     driver: bridge
-    name: ${PROJECT_NAME}_api-net
+    name: ${PROJECT_NAME}_fastapi-net
   airflow-net:
     driver: bridge
     name: ${PROJECT_NAME}_airflow-net
