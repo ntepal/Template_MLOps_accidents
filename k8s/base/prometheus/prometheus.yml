@@ -13,12 +13,12 @@ global:
 scrape_configs:
   - job_name: "accident-api"
     # prometheus demande, via Nginx, à api/metrics de lui fournir les métriques
-    metrics_path: "/api/metrics"
+    metrics_path: "/fastapi/metrics"
     static_configs:
       # Il envoie la requête à nginx (passerelle) sur le port 80
       # qui est configuré pour tout écouter (listen 80)
       #- targets: ["nginx:80"]
-      - targets: ["prediction-api:8000"]
+      - targets: ["fastapi:8000"]
     # A la réception des métriques de api,
     # il va mettre à jour sa base de données API
 

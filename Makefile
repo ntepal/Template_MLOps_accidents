@@ -169,8 +169,8 @@ DEPENDANT_SERVICES_NUM = $(words $(DEPENDANT_SERVICES))
 # ====================================================
 # UTILISER POUR CREER LES IMAGES KUBERNETES
 # ====================================================
-K8S_LOCAL_SERVICES_DOCKER_COMPOSE = airflow-webserver mlflow evidently_ui api
-K8S_LOCAL_IMAGES = airflow mlflow evidently api runner
+K8S_LOCAL_SERVICES_DOCKER_COMPOSE = airflow-webserver mlflow evidently_ui fastapi
+K8S_LOCAL_IMAGES = airflow mlflow evidently fastapi runner
 K8S_CTR_CMD = sudo ctr -a /run/k3s/containerd/containerd.sock -n k8s.io
 
 # =====================================

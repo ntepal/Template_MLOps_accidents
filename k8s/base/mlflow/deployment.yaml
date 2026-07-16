@@ -70,12 +70,15 @@ spec:
           imagePullPolicy: Never
 
           resources:
+            # Le request réserve physiquement la mémoire
+            # Le request vérifie que le CPU restant >= cpu sinon il ne démarre pas le pod
+            # d'où la faible valeur car on a bcp de services
             requests:
-              memory: "512Mi"  # Ce qu'il demande au démarrage
-              cpu: "300m"      # 0.3 vCPU
+              memory: "512Mi" # Ce qu'il demande au démarrage
+              cpu: "50m"      # 0.05 vCPU
             limits:
-              memory: "2Gi"  # Le plafond à ne pas dépasser
-              cpu: "1000m"      # 0.5 vCPU maximum
+              memory: "2Gi"   # Le plafond à ne pas dépasser
+              cpu: "1000m"    # 1.0 vCPU maximum
 
           ports:
             - containerPort: 5000

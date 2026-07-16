@@ -496,11 +496,11 @@ services:
     # Train est un Job: s'arrête si succès, retente si crash.
     restart: on-failure
 
-  fastapi:
+  api:
     build:
       context: .                     # . pour répertoire courant du .yml (la racine)
       dockerfile: src/api/Dockerfile # chemin relatif
-    image: ${PROJECT_NAME}-fastapi:1.0
+    image: ${PROJECT_NAME}-api:1.0
     # --- STRATÉGIE DE SCALING ---
     # Présent uniquement pour un futur déploiement
     # Pour replicas = 1 : container_name est autorisé et pratique pour le DNS.

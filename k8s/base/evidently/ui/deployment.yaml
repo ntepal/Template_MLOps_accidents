@@ -26,12 +26,15 @@ spec:
           # Configuration pour forcer l'utilisation de l'image locale
           imagePullPolicy: Never
           resources:
+            # Le request réserve physiquement la mémoire
+            # Le request vérifie que le CPU restant >= cpu sinon il ne démarre pas le pod
+            # d'où la faible valeur car on a bcp de services
             requests:
-              memory: "256Mi"  # Ce qu'il demande au démarrage
-              cpu: "200m"      # 0.2 vCPU
+              memory: "256Mi" # Ce qu'il demande au démarrage
+              cpu: "50m"      # 0.05 vCPU
             limits:
-              memory: "512Mi"  # Le plafond à ne pas dépasser
-              cpu: "500m"      # 0.5 vCPU maximum
+              memory: "1Gi"   # Le plafond à ne pas dépasser
+              cpu: "1000m"    # 1.0 vCPU maximum
 
           #workingDir: /app/data/evidently/accidents_severity-ws
 

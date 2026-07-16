@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: prediction-api
+  name: fastapi
   labels:
-    app: prediction-api
+    app: fastapi
 
 spec:
   replicas: 1
 
   selector:
     matchLabels:
-      app: prediction-api
+      app: fastapi
 
   template:
     metadata:
       labels:
-        app: prediction-api
+        app: fastapi
 
     spec:
       # Comme dans les autres services pour uniformiser les permissions
@@ -59,19 +59,22 @@ spec:
               echo "✅ MLflow is ready"
 
       containers:
-        - name: api
-          image: docker.io/library/accidents_severity-api:1.0
+        - name: fastapi
+          image: docker.io/library/accidents_severity-fastapi:1.0
           #imagePullPolicy: IfNotPresent
           # Configuration pour forcer l'utilisation de l'image locale
           imagePullPolicy: Never
 
           resources:
+            # Le request réserve physiquement la mémoire
+            # Le request vérifie que le CPU restant >= cpu sinon il ne démarre pas le pod
+            # d'où la faible valeur car on a bcp de services
             requests:
-              memory: "256Mi"  # Ce qu'il demande au démarrage
-              cpu: "200m"      # 0.2 vCPU
+              memory: "256Mi" # Ce qu'il demande au démarrage
+              cpu: "50m"      # 0.05 vCPU
             limits:
-              memory: "512Mi"  # Le plafond à ne pas dépasser
-              cpu: "500m"      # 0.5 vCPU maximum
+              memory: "1Gi"  # Le plafond à ne pas dépasser
+              cpu: "1000m"   # 1.0 vCPU maximum
 
           #command: ["/bin/sh", "-c", "sleep 3600"]
           # On ignore tout ce qui est dans le Dockerfile (CMD/ENTRYPOINT) ça ça génère une erreur
