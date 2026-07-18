@@ -2,13 +2,13 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 
 metadata:
-  name: data-pvc
+  name: "fastapi-pvc"
 
 spec:
   accessModes:
     - ReadWriteOnce
 
-  storageClassName: longhorn
+  storageClassName: "local-path"
 
   resources:
     requests:

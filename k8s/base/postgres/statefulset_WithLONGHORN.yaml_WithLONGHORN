@@ -46,14 +46,6 @@ spec:
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
 
-       env:
-        - name: POSTGRES_DB
-          value: "airflow"
-        - name: POSTGRES_USER
-          value: "airflow"
-        - name: POSTGRES_PASSWORD
-          value: "airflow" # Note : En production réelle, utilisez un Secret Kubernetes
-
           volumeMounts:
             - name: postgres-storage
               mountPath: /var/lib/postgresql/data
@@ -93,16 +85,12 @@ spec:
 
   # Préfére à persistentVolumeClaim: claimName: postgres-pvc car avec réplicas,
   # on n'est pas obligé de créer plusieurs pvc.yaml
-  # Avec deployment on aurait un seul pvc pour plusieurs replicas et postgres
-  # interdit les replicas d'écrire dans une même base de donnés 
-  # Donc avec statefulset et le volumeClaimTemplates, chaque replica génère sa propre
-  # database et donc pas de conflit d'écriture
   volumeClaimTemplates:
     - metadata:
-        name: "postgres-storage"
+        name: postgres-storage
       spec:
         accessModes: ["ReadWriteOnce"]
-        storageClassName: "local-path"
+        storageClassName: longhorn
         resources:
           requests:
             # Il faut un minimum de 1GB (mutliple de 1024) sur le disk

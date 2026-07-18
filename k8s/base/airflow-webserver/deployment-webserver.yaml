@@ -118,19 +118,41 @@ spec:
             failureThreshold: 5
 
           volumeMounts:
+            # On monte le volume git-sync vers les chemins attendus par Airflow
+            # volume source en lecture seulement
             - name: airflow-git-repo
-              # Répertoire de travail du container GitSync
-              # Les volumes dags et plugins sont présent
-              # grâce aux variables settées dans configmap.yaml
-              mountPath: /git
+              mountPath: /opt/airflow/dags
+              subPath: dags
+            # volume source en lecture seulement
+            - name: airflow-git-repo
+              mountPath: /opt/airflow/plugins
+              subPath: plugins
+            # volume cible en écriture
             - name: logs
-              mountPath: /app/logs
+              mountPath: /opt/airflow/logs
+              subPath: logs
+            - name: params-volume
+              mountPath: /opt/airflow/params.yaml
+              subPath: params.yaml
+            - name: docker-sock
+              mountPath: /var/run/docker.sock
+            - name: mlflow-artifacts
+              mountPath: /app/artifacts
 
       volumes:
         - name: airflow-git-repo
           # Volume via GitSync container
           emptyDir: {}
-
         - name: logs
           persistentVolumeClaim:
             claimName: airflow-pvc-logs
+        - name: params-volume
+          configMap:
+            name: airflow-params
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+        - name: mlflow-artifacts
+          persistentVolumeClaim:
+            claimName: mlflow-artifacts-pvc

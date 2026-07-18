@@ -1,0 +1,425 @@
+name: ${PROJECT_NAME}
+
+x-healthcheck-config: &standard-healthcheck
+  interval: 16s
+  timeout: 15s
+  retries: 10
+  start_period: 300s
+
+x-airflow-common: &airflow-common
+  image: ${PROJECT_NAME}-airflow:1.0
+  environment: &airflow-common-env
+    PROJECT_NAME: ${PROJECT_NAME}
+    MLFLOW_TRACKING_URI: ${DOCKER_MLFLOW_TRACKING_URI}
+    MLFLOW_EXPERIMENT_NAME: ${PROJECT_NAME}
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CELERY__BROKER_URL: "redis://:@redis:6379/0"
+    AIRFLOW_CONN_POSTGRES_DEFAULT: "postgres://airflow:airflow@postgres:5432/airflow"
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: "postgresql+psycopg2://airflow:airflow@postgres:5432/airflow"
+    AIRFLOW__CELERY__RESULT_BACKEND: "db+postgresql://airflow:airflow@postgres:5432/airflow"
+    AIRFLOW__WEBSERVER__BASE_URL: ${NGINX_PROTOCOL}://${PROJECT_IP}/airflow
+    AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX: "true"
+    _AIRFLOW_WWW_USER_USERNAME: "${_AIRFLOW_WWW_USER_USERNAME:-admin}"
+    _AIRFLOW_WWW_USER_PASSWORD: "${_AIRFLOW_WWW_USER_PASSWORD:-admin}"
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__API__AUTH_BACKENDS: "airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__HOSTNAME_CALLABLE: 'socket.gethostname'
+    AIRFLOW__WEBSERVER__RATELIMIT_STORAGE_URI: "redis://:@redis:6379/0"
+    DVC_REMOTE: "origin"
+    DAGSHUB_USER: ${DAGSHUB_USER}
+    DAGSHUB_REPO_NAME: ${DAGSHUB_REPO_NAME}
+    AWS_ACCESS_KEY_ID: ${DAGSHUB_S3_ACCESS_KEY_ID}
+    AWS_SECRET_ACCESS_KEY: ${DAGSHUB_S3_SECRET_ACCESS_KEY}
+    AWS_ENDPOINT_URL: "https://dagshub.com/s3"
+    MLFLOW_TRACKING_USERNAME: ${DAGSHUB_USER}
+    MLFLOW_TRACKING_PASSWORD: ${DAGSHUB_S3_SECRET_ACCESS_KEY}
+  networks:
+    - airflow-net
+    - mlflow-net
+    - fastapi-net
+  volumes:
+    - ./params.yaml:/opt/airflow/params.yaml
+    - ./deployments/airflow/dags:/opt/airflow/dags
+    - ./deployments/airflow/logs:/opt/airflow/logs
+    - ./deployments/airflow/plugins:/opt/airflow/plugins
+    - /var/run/docker.sock:/var/run/docker.sock
+    - mlflow-artifacts-volume:/app/artifacts # Stockage des modèles (des .pkl)
+  depends_on: &depends_on
+    redis: { condition: service_healthy }
+    postgres: { condition: service_healthy }
+  healthcheck:
+    <<: *standard-healthcheck
+  user: "${AIRFLOW_UID:-50000}:0"
+
+services:
+
+  postgres:
+    image: postgres:16.13-trixie
+    container_name: postgres_db
+    ports:
+      - "127.0.0.1:5432:5432"
+    environment:
+      - POSTGRES_DB=airflow
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      <<: *standard-healthcheck
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+    networks:
+      - mlflow-net
+      - airflow-net
+    restart: always
+
+  redis:
+    image: redis:7
+    container_name: redis_7
+    networks:
+      - airflow-net
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data-volume:/data
+    healthcheck:
+      <<: *standard-healthcheck
+      test: ["CMD", "redis-cli", "ping"]
+    restart: always
+
+  fix-vol-perm-mlflow:
+    image: busybox:1.36
+    container_name: fix_mlflow_perms
+    network_mode: none
+    command: chown -R ${USER_ID}:${GROUP_ID} /app/artifacts && chmod -R 775 /app/artifacts
+    volumes:
+      - mlflow-artifacts-volume:/app/artifacts
+
+  mlflow:
+    build:
+      context: .                        # . pour répertoire courant du .yml (la racine)
+      dockerfile: src/mlflow/Dockerfile # chemin relatif
+    image: ${PROJECT_NAME}-mlflow:1.0
+    container_name: mlflow_server
+    environment:
+      - MLFLOW_HTTP_REQUEST_TIMEOUT=60
+      - DATABASE_URL=postgresql://airflow:airflow@postgres:5432/mlflow
+    networks:
+      - mlflow-net
+      - airflow-net
+    volumes:
+      - mlflow-artifacts-volume:/app/artifacts  # Stockage des modèles (des .pkl)
+    depends_on:
+      fix-vol-perm-mlflow: { condition: service_completed_successfully }
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck:
+      <<: *standard-healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/')"]
+    restart: always
+
+  fix-vol-perm-airflow-init:
+    image: busybox:1.36
+    container_name: fix_airflow_perms
+    network_mode: none
+    command: >
+      sh -c "mkdir -p /opt/airflow 
+      && touch /opt/airflow/params.yaml
+      && chown -Rf ${USER_ID}:${GROUP_ID} /opt/airflow/params.yaml /opt/airflow/dags /opt/airflow/logs /opt/airflow/plugins /app/artifacts
+      && chmod -Rf 775 /opt/airflow/params.yaml /opt/airflow/dags /opt/airflow/logs /opt/airflow/plugins /app/artifacts"
+    volumes:
+      - ./params.yaml:/opt/airflow/params.yaml
+      - ./deployments/airflow/dags:/opt/airflow/dags
+      - ./deployments/airflow/logs:/opt/airflow/logs
+      - ./deployments/airflow/plugins:/opt/airflow/plugins
+      - mlflow-artifacts-volume:/app/artifacts
+
+  airflow-init:
+    <<: *airflow-common
+    command: version
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+    depends_on:
+      <<: *depends_on
+      fix-vol-perm-airflow-init: { condition: service_completed_successfully }
+
+  airflow-webserver:
+    build:
+      context: .                                 # . pour répertoire courant du .yml (la racine)
+      dockerfile: deployments/airflow/Dockerfile # chemin relatif
+    <<: *airflow-common
+    container_name: airflow-webserver
+    hostname: airflow-webserver
+    command: webserver
+    healthcheck:
+      <<: *standard-healthcheck
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/airflow/health"]
+    restart: always
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: airflow-scheduler
+    hostname: airflow-scheduler
+    command: scheduler
+    healthcheck:
+      <<: *standard-healthcheck
+      test: ["CMD-SHELL", 'airflow jobs check --job-type SchedulerJob --hostname "$${HOSTNAME}"']
+    restart: always
+
+  airflow-worker:
+    <<: *airflow-common
+    container_name: airflow-worker
+    hostname: airflow-worker
+    command: celery worker
+    healthcheck:
+      <<: *standard-healthcheck
+      test:
+        - "CMD-SHELL"
+        - 'celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"'
+    restart: always
+
+  airflow-flower:
+    <<: *airflow-common
+    container_name: airflow-flower
+    hostname: airflow-flower
+    command: celery flower
+    environment:
+      <<: *airflow-common-env
+      FLOWER_URL_PREFIX: flower
+    healthcheck:
+      <<: *standard-healthcheck
+      test: ["CMD", "curl", "--fail", "http://localhost:5555/flower/"]
+    restart: always
+
+  train:
+    build:
+      context: .                        # . pour répertoire courant du .yml (la racine)
+      dockerfile: src/models/Dockerfile # chemin relatif
+    image: ${PROJECT_NAME}-train:1.0
+    container_name: training_service
+    environment:
+      - MLFLOW_TRACKING_URI=${DOCKER_MLFLOW_TRACKING_URI}
+      - UV_LINK_MODE=copy
+      - GIT_PYTHON_REFRESH=quiet
+    networks:
+      - mlflow-net
+      - airflow-net
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+      - ./models:/app/models
+      - mlflow-artifacts-volume:/app/artifacts
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    restart: on-failure
+
+  fastapi:
+    build:
+      context: .                     # . pour répertoire courant du .yml (la racine)
+      dockerfile: src/api/Dockerfile # chemin relatif
+    image: ${PROJECT_NAME}-fastapi:1.0
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+    container_name: prediction_api
+    environment:
+      - MLFLOW_TRACKING_URI=${DOCKER_MLFLOW_TRACKING_URI}
+      - UV_LINK_MODE=copy
+      - GIT_PYTHON_REFRESH=quiet
+      - DAGSHUB_REPO_NAME=${DAGSHUB_REPO_NAME}
+      - DAGSHUB_USER=${DAGSHUB_USER}
+      - AWS_ACCESS_KEY_ID=${DAGSHUB_S3_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${DAGSHUB_S3_SECRET_ACCESS_KEY}
+    networks:
+      - fastapi-net
+      - mlflow-net
+    volumes:
+      - ./src:/app/src
+      - mlflow-artifacts-volume:/app/artifacts  # lire les modèles (des .pkl)
+      - ./data:/app/data
+    depends_on:
+      mlflow: { condition: service_healthy }
+    healthcheck:
+      <<: *standard-healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+    restart: always
+
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    container_name: prometheus
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/rules:/etc/prometheus/rules
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.route-prefix=/prometheus
+      - --web.external-url=${NGINX_PROTOCOL}://${PROJECT_IP}/prometheus/
+    networks:
+      - fastapi-net
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      <<: *standard-healthcheck
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/prometheus/-/healthy"]
+    restart: always
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    container_name: grafana
+    environment:
+      - GF_SERVER_ROOT_URL=${NGINX_PROTOCOL}://${PROJECT_IP}/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - GF_WEBHOOK_URL=https://webhook.site/85262e74-bee6-4a52-9b9c-299f1208c67d
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards_json:/var/lib/grafana/dashboards
+    depends_on:
+      prometheus: { condition: service_healthy }
+    networks:
+      - fastapi-net
+    healthcheck:
+      <<: *standard-healthcheck
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/grafana/login"]
+    restart: always
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: node-exporter
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.sysfs=/host/sys'
+      - '--path.rootfs=/rootfs'
+      - '--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/run/docker/netns/.+)$'
+    depends_on:
+      prometheus: { condition: service_healthy }
+    networks:
+      - fastapi-net
+    healthcheck:
+      <<: *standard-healthcheck
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:9100/metrics"]
+    restart: always
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: cadvisor
+    security_opt:
+      - label:disable # Permet de lire les fichiers système sans bloquer
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro # Indispensable et sécurisé en lecture seule
+    ports:
+      - "127.0.0.1:8082:8080" # <-- 8082 pour éviter le conflit avec airflow
+    networks:
+      - fastapi-net
+    healthcheck:
+      <<: *standard-healthcheck
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/healthz"]
+    restart: unless-stopped
+
+  evidently_ui:
+    build:
+      context: .                     # . pour répertoire courant du .yml (la racine)
+      dockerfile: src/monitoring/Dockerfile # chemin relatif
+    image: ${PROJECT_NAME}-evidently:1.0
+    container_name: evidently_ui
+    command: evidently ui --workspace ${EVIDENTLY_WORKSPACE} --port 8000 --host 0.0.0.0
+    environment:
+      - PATH=/app/monitoring/.venv/bin:$PATH
+      - EVIDENTLY_WORKSPACE=${EVIDENTLY_WORKSPACE}
+      - EVIDENTLY_PATH=${EVIDENTLY_PATH}
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+    depends_on:
+      fastapi: { condition: service_healthy }
+    networks:
+      - fastapi-net
+    healthcheck:
+      <<: *standard-healthcheck
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://0.0.0.0:8000/').read()"]
+    restart: always
+
+  monitoring:
+    image: ${PROJECT_NAME}-evidently:1.0
+    volumes:
+      - ./src:/app/src
+      - ./data:/app/data
+    container_name: monitoring
+    user: ${USER_ID}:${GROUP_ID}
+    command: ["python3", "src/monitoring/evidently_monitor_daemon.py"]
+    environment:
+      - EVIDENTLY_PATH=${EVIDENTLY_PATH}
+      - PROJECT_NAME=${PROJECT_NAME}
+      - EVIDENTLY_WORKSPACE=${EVIDENTLY_WORKSPACE}
+      - MONITOR_DAEMON_TIMER=30
+    depends_on:
+      fastapi: { condition: service_healthy }
+    healthcheck:
+      <<: *standard-healthcheck
+      test: ["CMD", "python3", "/app/src/monitoring/check_health.py"]
+    restart: always
+
+  nginx:
+    build:
+      context: ./deployments/nginx
+      dockerfile: Dockerfile
+      args:
+        - NGINX_CONF_FILE=${NGINX_CONF_FILE:-nginx.conf}
+    image: ${PROJECT_NAME}-nginx:1.0-${NGINX_MODE:-prod}
+    container_name: nginx_reverse_proxy
+    ports:
+      - ${NGINX_PORT_OUT:-443}:${NGINX_PORT_IN:-443}
+    environment:
+      - MLFLOW_TRACKING_URI=${DOCKER_MLFLOW_TRACKING_URI}
+    networks:
+      - fastapi-net
+      - mlflow-net
+      - airflow-net
+    volumes:
+      - ./deployments/nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      fastapi: { condition: service_healthy }
+      mlflow: { condition: service_healthy }
+      airflow-webserver: { condition: service_healthy }
+      airflow-flower: { condition: service_healthy }
+      prometheus: { condition: service_healthy }
+      grafana: { condition: service_healthy }
+      evidently_ui: { condition: service_healthy }
+      monitoring: { condition: service_healthy }
+    restart: always
+
+networks:
+  mlflow-net:
+    driver: bridge
+    name: ${PROJECT_NAME}_mlflow-net
+  fastapi-net:
+    driver: bridge
+    name: ${PROJECT_NAME}_fastapi-net
+  airflow-net:
+    driver: bridge
+    name: ${PROJECT_NAME}_airflow-net
+
+volumes:
+  postgres-db-volume:
+  mlflow-artifacts-volume:
+  redis-data-volume:
+  prometheus_data:
+  grafana_data:
