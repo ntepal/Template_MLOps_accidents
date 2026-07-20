@@ -5,11 +5,10 @@ metadata:
   name: "mlflow-artifacts-pvc"
 
 spec:
-  accessModes:
-    - ReadWriteOnce
-
   storageClassName: "local-path"
-
+  accessModes:
+    # Comme c'est du local-path, on doit mettre Once. Avec Longhorn ou autre on peut mettre many mais pas assez de RAM et disk sur la VM
+    - ReadWriteOnce
   resources:
     requests:
       storage: 1Gi

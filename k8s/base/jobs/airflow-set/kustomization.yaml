@@ -16,7 +16,7 @@ generatorOptions:
 configMapGenerator:
   - name: airflow-config
     envs:
-      - ../../airflow/.env.config
+      - ../../airflow-common/.env.config
 
 resources:
   - airflow-set-variables.yaml

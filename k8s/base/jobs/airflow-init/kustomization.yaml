@@ -16,12 +16,12 @@ generatorOptions:
 configMapGenerator:
   - name: airflow-config
     envs:
-      - ../../airflow/.env.config
+      - ../../airflow-common/.env.config
 
 secretGenerator:
   - name: airflow-secret
     envs:
-      - ../../airflow/.env.secret
+      - ../../airflow-common/.env.secret
 
 resources:
   - airflow-init.yaml

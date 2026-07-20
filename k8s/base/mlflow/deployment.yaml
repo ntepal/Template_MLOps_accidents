@@ -89,9 +89,38 @@ spec:
             - |
               rm -rf /app/.dvc /app/dvc.yaml /app/dvc.lock
               chown -R 1000:1000 /app/artifacts
-              mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri ${DATABASE_URL} --default-artifact-root /app/artifacts --allowed-hosts '*' --cors-allowed-origins '*'
+              mlflow server --host 0.0.0.0 --port 5000 \
+                --backend-store-uri ${DATABASE_URL} \
+                --default-artifact-root /app/artifacts \
+                --workers 1 \
+                --allowed-hosts '*' --cors-allowed-origins '*'
 
           env:
+            # ---------------------------------------------------------------------------
+            # MLFLOW_SERVER_ENABLE_JOB_EXECUTION = false
+            # ---------------------------------------------------------------------------
+            # MLflow 3.x embarque un "job runner" (file de tâches Huey) activé par défaut.
+            # Au démarrage, il lance UN PROCESS PYTHON PAR QUEUE (+ 1 pour les tâches
+            # périodiques), soit ~7 process de ~220 Mo chacun => ~1,5 Go de RAM.
+            # Constaté ici : 1,65 Go consommés dont seulement ~230 Mo pour le serveur web.
+            # => OOMKilled (exit 137) sur la limite de 2 Gi du conteneur.
+            #
+            # Ces jobs servent aux opérations asynchrones déclenchées depuis l'UI/API :
+            # évaluation de modèles, scorers/judges GenAI, scoring en ligne, maintenance.
+            # Dans NOTRE architecture, l'entraînement et l'évaluation tournent dans le
+            # conteneur "runner" via les DAGs Airflow. Ce serveur ne fait que servir l'UI
+            # et lire/écrire dans Postgres : les consumers tournent donc à vide.
+            #
+            # ⚠️ Conséquence : une tâche asynchrone lancée depuis l'UI resterait en attente
+            # SANS message d'erreur explicite. Repasser à "true" (+ restart du pod) si on
+            # utilise un jour l'évaluation côté serveur ou les fonctions GenAI.
+            #
+            # Réf : mlflow/environment_variables.py L1437 (défaut = True)
+            #       mlflow/server/jobs/_job_runner.py (1 consumer par queue)
+            # Gain mesuré : ~1,65 Go -> ~500 Mo, démarrage plus rapide (-10 s de sleep)
+            # ---------------------------------------------------------------------------
+            - name: MLFLOW_SERVER_ENABLE_JOB_EXECUTION
+              value: "false"
             - name: MLFLOW_HTTP_REQUEST_TIMEOUT
               value: "60"
             - name: DATABASE_URL
@@ -101,21 +130,21 @@ spec:
             httpGet:
               path: /
               port: 5000
-            periodSeconds: 10
-            failureThreshold: 30   # ~150s max
+            periodSeconds: 30
+            failureThreshold: 20   # 500s max
 
           readinessProbe:
             httpGet:
               path: /
               port: 5000
-            periodSeconds: 10
+            periodSeconds: 40
             failureThreshold: 3
 
           livenessProbe:
             httpGet:
               path: /
               port: 5000
-            periodSeconds: 10
+            periodSeconds: 60
             # Prendre en compte les lenteurs
             failureThreshold: 5
 

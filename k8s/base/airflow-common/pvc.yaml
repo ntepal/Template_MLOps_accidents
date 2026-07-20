@@ -3,8 +3,12 @@ kind: PersistentVolumeClaim
 metadata:
   name: airflow-pvc-logs
 spec:
+  storageClassName: "local-path"
   accessModes:
-    - ReadWriteMany
+    # En mode local-path, prévu que pour un seul noeud (la VM)
+    - ReadWriteOnce
+    # En mode longhorn (ou autre), adapté pour plusieurs noeuds mais la VM a un disk et ram to petit pour supporter le volume
+    #- ReadWriteMany
   resources:
     requests:
       storage: 1Gi

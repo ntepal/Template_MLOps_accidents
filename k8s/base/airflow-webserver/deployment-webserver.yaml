@@ -100,34 +100,30 @@ spec:
             httpGet:
               path: /airflow/health
               port: 8080
-            periodSeconds: 10
-            failureThreshold: 30
+            periodSeconds: 30
+            failureThreshold: 20
 
           readinessProbe:
             httpGet:
               path: /airflow/health
               port: 8080
-            periodSeconds: 10
+            periodSeconds: 40
             failureThreshold: 3
 
           livenessProbe:
             httpGet:
               path: /airflow/health
               port: 8080
-            periodSeconds: 10
+            periodSeconds: 60
             failureThreshold: 5
 
           volumeMounts:
-            # On monte le volume git-sync vers les chemins attendus par Airflow
-            # volume source en lecture seulement
             - name: airflow-git-repo
               mountPath: /opt/airflow/dags
               subPath: dags
-            # volume source en lecture seulement
             - name: airflow-git-repo
               mountPath: /opt/airflow/plugins
               subPath: plugins
-            # volume cible en écriture
             - name: logs
               mountPath: /opt/airflow/logs
               subPath: logs
@@ -141,14 +137,28 @@ spec:
 
       volumes:
         - name: airflow-git-repo
-          # Volume via GitSync container
           emptyDir: {}
         - name: logs
           persistentVolumeClaim:
             claimName: airflow-pvc-logs
         - name: params-volume
-          configMap:
-            name: airflow-params
+          hostPath:
+            # Idéal pour le développement sur une seule VM (comportement identique à Docker Compose).
+            # Attention : le fichier doit exister sur le nœud hôte avant le démarrage.
+            # On monte le volume (<=> bindMounts avec docker compose) et ainsi tout devient visible et donc aussi params.yaml
+            path: /home/ubuntu/Template_MLOps_accidents/
+            type: Directory
+          # Note : Avec hostPath, les données persistent sur le disque de la VM même si le Pod redémarre.
+
+          # Alternative : emptyDir
+          # emptyDir: {}
+          # Inconvénient : Le volume est effacé à chaque fois que le Pod est recréé.
+          # Nécessite un initContainer pour être repeuplé.
+
+          # Alternative : configMap
+          # configMap:
+          #   name: airflow-params
+          # Inconvénient : Montage en lecture seule (read-only). Impossible pour ton DAG d'écrire dedan
         - name: docker-sock
           hostPath:
             path: /var/run/docker.sock
@@ -156,3 +166,4 @@ spec:
         - name: mlflow-artifacts
           persistentVolumeClaim:
             claimName: mlflow-artifacts-pvc
+

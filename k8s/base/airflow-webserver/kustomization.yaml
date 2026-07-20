@@ -28,12 +28,6 @@ configMapGenerator:
     envs:
       - ../airflow-common/.env.config.gitsync
 
-  - name: airflow-params
-    options:
-      disableNameSuffixHash: true
-    files:
-      - ../../params.yaml
-
 secretGenerator:
   - name: airflow-secret
     envs:

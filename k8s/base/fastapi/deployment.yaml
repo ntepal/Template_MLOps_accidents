@@ -118,7 +118,7 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: data-pvc
+            claimName: fastapi-pvc
 
         - name: artifacts
           persistentVolumeClaim:
