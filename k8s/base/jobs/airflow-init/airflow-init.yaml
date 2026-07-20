@@ -5,8 +5,10 @@ metadata:
   labels:
     app: airflow
 spec:
+  # Nombre de tentatives
   backoffLimit: 5
-  ttlSecondsAfterFinished: 600
+  # Suppression automatique du job au bout d'une heure
+  ttlSecondsAfterFinished: 3600
 
   template:
     spec:

@@ -24,7 +24,7 @@ SHELL := /bin/bash
 .PHONY: kubernetes-clean-all kubernetes-clean kubernetes-reset-cluster
 .PHONY: kubernetes-migrate-image-from-service kubernetes-migrate-image-not-from-service
 .PHONY: setup-swap
-.PHONY: kubernetes-deploy-service kubernetes-deploy-job kubernetes-ubuntu-usage
+.PHONY: kubernetes-deploy-service kubernetes-deploy-job kubernetes-ubuntu-usage kubernetes-save-job-logs
 
 # Raccourci : taper juste "make" lancera la liste des commandes du Makefile
 .DEFAULT_GOAL := help
@@ -1399,6 +1399,15 @@ docker-full-start-WoInitialTrain_fast: ## [PROD][DOCKER] Démarrage simultannés
 	@echo "Vérification des volumes après le full restart"
 	@docker volume ls
 
+kubernetes-save-job-logs:
+	@mkdir -p logs/jobs
+	@for job in $$(kubectl get jobs -n accidents-severity -o name); do \
+		name=$$(basename $$job); \
+		kubectl logs $$job -n accidents-severity --all-containers=true --tail=-1 \
+			> logs/jobs/$${name}-$$(date +%Y%m%d-%H%M%S).log 2>&1 \
+			&& echo "📄 logs sauvés : $$name" \
+			|| echo "⚠️  pas de logs pour $$name (pod déjà supprimé ?)"; \
+	done
 
 # Usage : make deploy-service SERVICE=mon-service TIMEOUT=300
 kubernetes-deploy-service:
@@ -1415,20 +1424,21 @@ kubernetes-deploy-service:
 	@# On utilise des $$ pour échapper le $ dans le Makefile
 	@if kubectl get statefulset $(SERVICE) -n accidents-severity >/dev/null 2>&1; then \
 		TYPE="statefulset/$(SERVICE)"; \
+	elif kubectl get daemonset $(SERVICE) -n accidents-severity >/dev/null 2>&1; then \
+		TYPE="daemonset/$(SERVICE)"; \
 	elif [ "$(SERVICE)" = "evidently" ]; then \
 		TYPE="deployment/evidently-ui"; \
 	else \
 		TYPE="deployment/$(SERVICE)"; \
 	fi; \
 	echo " ⏳ ATTENTE DU ROLLOUT sur $$TYPE (timeout=$(TIMEOUT))..."; \
-	kubectl rollout status $$TYPE -n accidents-severity --timeout=$(TIMEOUT)
-
-	@if [ $$? -eq 0 ]; then \
+	if kubectl rollout status $$TYPE -n accidents-severity --timeout=$(TIMEOUT); then \
 		echo " ✅ SERVICE $(SERVICE) READY ==> ON CONTINUE "; \
 	else \
 		echo " ❌ ECHEC DU SERVICE $(SERVICE) : timeout atteint. Arrêt."; \
 		exit 1; \
 	fi
+	$(MAKE) -s kubernetes-save-job-logs
 	$(MAKE) -s kubernetes-ubuntu-usage
 
 # Usage : make deploy-job JOB=nom-du-fichier TIMEOUT=300
@@ -1689,7 +1699,7 @@ kubernetes-ubuntu-usage: ## [PROD][DOCKER] UBUNTU : VERIF RAM, DISK, CPU
 	@uptime
 	@echo ""
 	@echo "--- CPU USAGE ---"
-	@top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $1"%"}'
+	@top -bn1 | grep "Cpu(s)" | sed "s/.*, *\([0-9.]*\)%* id.*/\1/" | awk '{print 100 - $$1"%"}'
 
 # ================================================================================================
 # ------------------------------------ DOCKER SERVICE DEBUG --------------------------------------

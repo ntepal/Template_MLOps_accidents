@@ -3,6 +3,11 @@ kind: Job
 metadata:
   name: create-mlflow-db
 spec:
+  # Nombre de tentatives
+  backoffLimit: 5
+  # Suppression automatique du job au bout d'une heure
+  ttlSecondsAfterFinished: 3600
+
   template:
     spec:
       # Comme dans le deployment de mlflow pour s'assurer des droits identiques partout

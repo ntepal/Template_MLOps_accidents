@@ -71,7 +71,7 @@ RUN uv sync --frozen --no-cache --no-install-project
 
 # Copier TOUS, SAUF ce qui est indiqué dans le .dockerignore (filtre) vers /app/..
 #COPY src/mlflow /app/src/mlflow
-COPY --chown=1000:1000 src /app/src/mlflow
+COPY --chown=1000:1000 src/mlflow /app/src/mlflow
 
 # ON DOIT REVENIR EN ROOT POUR RÉPARER LES DROITS
 #USER root
