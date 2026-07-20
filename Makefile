@@ -1464,11 +1464,14 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 	@##$(MAKE) -s setup-permissions
 
 	@# Préparation système (Swap) - Maintenant qu'on sait qu'on est autorisé à avancer
-	@echo ""
-	@echo "======================================================================================"
-	@echo "💡 CREER LE SWAP 4GO AVANT DE LANCER LES SERVICES POUR EVITER LA SATURATION CPU A 100%"
-	@$(MAKE) -s setup-swap
-	@echo "======================================================================================"
+	@# Techniquement, la raison est que Kubernetes gère la mémoire par cgroups avec des garanties strictes.
+	@# Si un pod pouvait swapper, limits.memory ne voudrait plus dire grand-chose — un conteneur « dans les clous »
+	@# pourrait en réalité ramer atrocement sur du disque. Le choix a été fait de tuer plutôt que de dégrader.
+	@#echo ""
+	@#echo "======================================================================================"
+	@#echo "💡 CREER LE SWAP 4GO AVANT DE LANCER LES SERVICES POUR EVITER LA SATURATION CPU A 100%"
+	@#$(MAKE) -s setup-swap
+	@#echo "======================================================================================"
 
 	@echo ""
 	@echo "======================================================================"
