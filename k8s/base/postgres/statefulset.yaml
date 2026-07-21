@@ -63,7 +63,7 @@ spec:
             # Tentative chaque periodSeconds
             periodSeconds: 10
             # Si absent, par défaut 1s
-            timeoutSeconds: 1
+            timeoutSeconds: 5
             # Jusqu'à 30 échecs (300s) avant d'abandonner
             failureThreshold: 30
             # NB: si absent, par défaut 1s
@@ -79,13 +79,15 @@ spec:
             # attendre 10s avant de faire le test. Pas indspensable avec le startup présent
             # initialDelaySeconds: 10
             periodSeconds: 10
+            timeoutSeconds: 5
             failureThreshold: 10
 
           # Pod toujours vivant
           livenessProbe:
             exec:
               command: ["pg_isready", "-U", "airflow"]
-            periodSeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 10
             # Si problème ne pas attendre trop longtemps avant redémarrage
             failureThreshold: 3
 

@@ -24,7 +24,7 @@ spec:
             - sh
             - -c
             - |
-              until nc -z evidently-ui 8000; do echo "Attente du service UI..."; sleep 2; done;
+              until nc -z evidently-ui 80; do echo "Attente du service UI..."; sleep 2; done;
               mkdir -p /app/data/evidently/reports
               echo "Dossier /app/data/evidently/reports créé."
               mkdir -p /app/data/evidently/accidents_severity-ws

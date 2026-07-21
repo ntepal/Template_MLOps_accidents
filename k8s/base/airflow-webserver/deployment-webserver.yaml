@@ -26,6 +26,29 @@ spec:
         #fsGroup: 0
 
       initContainers:
+        # Le conteneur airflow monte /opt/airflow/dags via un subPath du volume airflow-git-repo.
+        # Or un subPath doit EXISTER au moment du montage: il est résolu une seule fois et ne suit pas les créations ultérieures.
+        # Le sidecar git-sync et le conteneur Airflow démarrant en parallèle, Airflow gagne parfois la course => échec du montage :
+        #   StartError / exit 128 : "no such file or directory" => RunContainerError, redémarrage, ~90 s perdues à chaque start.
+        # Cet initContainer clone une fois (--one-time) puis sort : le répertoire existe donc forcément ensuite.
+        # Le sidecar git-sync reste en place pour la synchronisation continue des DAGs.
+        # NB : même securityContext (65533) que le sidecar, sinon le sidecar ne pourrait pas mettre à jour des fichiers créés par un autre UID.
+        - name: git-sync-init
+          image: registry.k8s.io/git-sync/git-sync:v4.1.0
+          imagePullPolicy: IfNotPresent
+
+          securityContext:
+            runAsUser: 65533
+            runAsGroup: 65533
+          args:
+            - --one-time
+          envFrom:
+            - configMapRef:
+                name: airflow-gitsync-config
+          volumeMounts:
+            - name: airflow-git-repo
+              mountPath: /git
+
         - name: wait-for-postgres
           image: postgres:16.13-trixie
           imagePullPolicy: IfNotPresent
@@ -101,6 +124,7 @@ spec:
               path: /airflow/health
               port: 8080
             periodSeconds: 30
+            timeoutSeconds: 15
             failureThreshold: 20
 
           readinessProbe:
@@ -108,6 +132,7 @@ spec:
               path: /airflow/health
               port: 8080
             periodSeconds: 40
+            timeoutSeconds: 15
             failureThreshold: 3
 
           livenessProbe:
@@ -115,6 +140,7 @@ spec:
               path: /airflow/health
               port: 8080
             periodSeconds: 60
+            timeoutSeconds: 15
             failureThreshold: 5
 
           volumeMounts:

@@ -1438,7 +1438,6 @@ kubernetes-deploy-service:
 		echo " ❌ ECHEC DU SERVICE $(SERVICE) : timeout atteint. Arrêt."; \
 		exit 1; \
 	fi
-	$(MAKE) -s kubernetes-save-job-logs
 	$(MAKE) -s kubernetes-ubuntu-usage
 
 # Usage : make deploy-job JOB=nom-du-fichier TIMEOUT=300
@@ -1457,9 +1456,12 @@ kubernetes-deploy-job:
 		echo " ✅ JOB $(JOB) COMPLETED ==> ON CONTINUE "; \
 	else \
 		echo " ❌ ECHEC DU JOB $(JOB) : code erreur $$RET_CODE. Arrêt."; \
+		mkdir -p logs/jobs; \
+		kubectl logs job/$(JOB) -n accidents-severity --all-containers=true --tail=-1 \
+			> logs/jobs/FAILED-$(JOB)-$$(date +%Y%m%d-%H%M%S).log 2>&1; \
 		exit 1; \
 	fi
-	@$(MAKE) -s kubernetes-ubuntu-usage
+	$(MAKE) -s kubernetes-ubuntu-usage
 
 # Lancer tout l'écosystème conteneurisé sur kubernetes
 # L'option -d (--detach) pour le faire tourner en tâche de fond (daemon mode)
@@ -1544,6 +1546,7 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 	$(MAKE) -s kubernetes-deploy-job JOB=create-mlflow-db TIMEOUT=300s DIR=mlflow-db
 	$(MAKE) -s kubernetes-deploy-job JOB=airflow-init TIMEOUT=600s DIR=airflow-init
 	$(MAKE) -s kubernetes-deploy-job JOB=airflow-set-variables TIMEOUT=600s DIR=airflow-set
+	$(MAKE) -s kubernetes-save-job-logs
 	$(MAKE) -s kubernetes-deploy-service SERVICE=mlflow TIMEOUT=300s
 	$(MAKE) -s kubernetes-deploy-service SERVICE=airflow-webserver TIMEOUT=600s
 	$(MAKE) -s kubernetes-deploy-service SERVICE=airflow-scheduler TIMEOUT=600s
@@ -1590,6 +1593,7 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 
 	@echo ""
 	@echo "🥈 Vue complète pour vérification visuelle"
+	@echo "cmd: watch kubectl get all -n accidents-severity"
 	@watch kubectl get all -n accidents-severity
 
 	@echo ""

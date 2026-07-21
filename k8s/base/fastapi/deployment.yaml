@@ -48,11 +48,12 @@ spec:
         - name: wait-for-mlflow
           image: busybox:1.36
           imagePullPolicy: IfNotPresent
+          # -T 5 pour timeout de 5s
           command:
             - sh
             - -c
             - |
-              until wget -qO- http://mlflow:5000/health || true; do
+              until wget -q -T 5 -O /dev/null http://mlflow/health; do
                 echo "⏳ Waiting for MLflow..."
                 sleep 2
               done
@@ -96,8 +97,9 @@ spec:
             httpGet:
               path: /health
               port: 8000
-            initialDelaySeconds: 60
+            initialDelaySeconds: 15
             periodSeconds: 20
+            timeoutSeconds: 5
             failureThreshold: 5
 
           livenessProbe:
@@ -106,6 +108,7 @@ spec:
               port: 8000
             initialDelaySeconds: 60
             periodSeconds: 20
+            timeoutSeconds: 10
             failureThreshold: 5
 
           volumeMounts:
