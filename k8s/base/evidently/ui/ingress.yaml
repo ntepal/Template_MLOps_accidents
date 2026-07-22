@@ -16,19 +16,39 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
+    # --------------------------------------------------------------------------------------------------------------------------
+    # Evidently exposé sur "/" (ni host et préfixe) car UI ne supporte pas de path prefix (limite constatée dès docker-compose).
+    # Conséquence: "/" = attrape-tout car capte tout ce qu'aucune règle plus spécifique (/airflow, /flower, /fastapi) ne matche.
+    # Donc URL inconnue tombe dans ce cas et  renvoie le 404 d'Evidently ("no file or directory match the path ...").
+    # Acceptable ici : un seul service à la racine, IP publique dynamique.
+    # EN CONTEXTE INDUSTRIEL, préférer :
+    #   1. Elastic IP (ou DNS) => IP/nom stable
+    #   2. host dédié : evidently.<domaine>  au lieu de "/"
+    #      => plus de collision, chaque service isolé sur son hostname
+    #   3. idéalement, TLS via cert-manager (déjà déployé dans ce cluster)
+    # --------------------------------------------------------------------------------------------------------------------------
     - http:
         paths:
+          # NB: pour le fastapi, j'ai modifier le prefix.
+          # Dans le docker compose on y accède via @IP_VM/api et donc les paths ci-dessous sont nécessaires pour différencier
+          # le fastapi de evidently
+          # Avec kubernetes, j'ai changé cette règle et on accède au fastapi via @IP_VM/fastapi. De facto, ces règles deviennent inutiles
           # Priorité haute (le plus spécifique en premier)
-          - path: /api/version
-            pathType: Exact
-            backend:
-              service: { name: evidently-ui, port: { number: 8000 } }
-          - path: /api/projects
-            pathType: Exact
-            backend:
-              service: { name: evidently-ui, port: { number: 8000 } }
+          #- path: /api/version
+          #  pathType: Exact
+          #  backend:
+          #    # Port d'entrée défini dans service.yaml
+          #    #service: { name: evidently-ui, port: { number: 8000 } }
+          #    service: { name: evidently-ui, port: { number: 80 } }
+          #- path: /api/projects
+          #  pathType: Exact
+          #  backend:
+          #    #service: { name: evidently-ui, port: { number: 8000 } }
+          #    service: { name: evidently-ui, port: { number: 80 } }
           # Racine
           - path: /
             pathType: Prefix
             backend:
-              service: { name: evidently-ui, port: { number: 8000 } }
+              # Port d'entrée défini dans service.yaml
+              #service: { name: evidently-ui, port: { number: 8000 } }
+              service: { name: evidently-ui, port: { number: 80 } }

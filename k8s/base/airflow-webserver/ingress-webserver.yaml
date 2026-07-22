@@ -4,7 +4,8 @@ metadata:
   name: airflow-webserver-ingress
   annotations:
     # 1. Réécriture du chemin (pour enlever /webserver)
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    #nginx.ingress.kubernetes.io/rewrite-target: /$2  ==> $2 fait référence à |$)(.*)
+    # or comme on onserver airflow dans le chemin, on ne fait plus le rewrite
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     # nodelay est activé par défaut dans ingress-nginx
@@ -16,10 +17,15 @@ spec:
   rules:
     - http:
         paths:
-          - path: /airflow(/|$)(.*)
-            pathType: ImplementationSpecific
+          #- path: /airflow(/|$)(.*)
+            #pathType: ImplementationSpecific
+          - path: /airflow
+            # Prefix pour indiquer que le chemin doit commencer par /airflow et c'est ce qu'on veut
+            pathType: Prefix
             backend:
               service:
                 name: airflow-webserver
+                # Port d'entrée défini dans service.yaml
                 port:
-                  number: 8080
+                  number: 80
+                  #number: 8080

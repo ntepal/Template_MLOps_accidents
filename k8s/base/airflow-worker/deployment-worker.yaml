@@ -158,11 +158,13 @@ spec:
 
           volumeMounts:
             - name: airflow-git-repo
-              mountPath: /opt/airflow/dags
-              subPath: dags
-            - name: airflow-git-repo
-              mountPath: /opt/airflow/plugins
-              subPath: plugins
+              mountPath: /git
+            #- name: airflow-git-repo
+            #  mountPath: /opt/airflow/dags
+            #  subPath: dags
+            #- name: airflow-git-repo
+            #  mountPath: /opt/airflow/plugins
+            #  subPath: plugins
             - name: logs
               mountPath: /opt/airflow/logs
               subPath: logs

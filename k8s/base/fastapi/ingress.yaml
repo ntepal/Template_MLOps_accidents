@@ -4,7 +4,8 @@ metadata:
   name: fastapi-ingress
   annotations:
     # 1. Réécriture du chemin (pour enlever /mlflow)
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # Même raison que pour airflow-webserver
+    #nginx.ingress.kubernetes.io/rewrite-target: /$2
     # 2. Rate Limiting (Équivalent de zone=apilimit rate=10r/s burst=50)
     # limit-rps: 10 correspond au "rate=10r/s"
     # limit-burst-multiplier: 50 correspond au "burst=50"
@@ -17,10 +18,15 @@ spec:
   rules:
     - http:
         paths:
-          - path: /fastapi(/|$)(.*)
-            pathType: ImplementationSpecific
+          #- path: /fastapi(/|$)(.*)
+          #  pathType: ImplementationSpecific
+          - path: /fastapi
+            # Prefix pour indiquer que le chemin doit commencer par /airflow et c'est ce qu'on veut
+            pathType: Prefix
             backend:
               service:
                 name: fastapi
+                # Port d'entrée défini dans service.yaml
                 port:
-                  number: 8000
+                  number: 80
+                  #number: 8000

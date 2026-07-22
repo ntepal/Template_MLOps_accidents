@@ -4,7 +4,8 @@ metadata:
   name: airflow-flower-ingress
   annotations:
     # 1. Réécriture du chemin (pour enlever /webserver)
-    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    #nginx.ingress.kubernetes.io/rewrite-target: /$2
+    # même raison que pour webserver
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     # nodelay est activé par défaut dans ingress-nginx
@@ -16,10 +17,15 @@ spec:
   rules:
     - http:
         paths:
-          - path: /flower(/|$)(.*)
-            pathType: ImplementationSpecific
+          #- path: /flower(/|$)(.*)
+            #pathType: ImplementationSpecific
+          - path: /flower
+            # comme pour webserver
+            pathType: Prefix
             backend:
               service:
                 name: airflow-flower
+                # Port d'entrée défini dans service.yaml
                 port:
-                  number: 5555
+                  number: 80
+                  #number: 5555

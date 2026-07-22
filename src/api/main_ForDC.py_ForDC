@@ -52,14 +52,14 @@ import io
 # -----------------------------------------------------------------------------
 # CONFIGURATION DU ROOT_PATH
 # -----------------------------------------------------------------------------
-# En définissant root_path="/fastapi", FastAPI devient "conscient" qu'il est
+# En définissant root_path="/api", FastAPI devient "conscient" qu'il est
 # derrière un reverse proxy (Nginx).
 # 1. Le navigateur enverra toutes les requêtes (ex: formulaires, JS) vers /api/...
 # 2. Les routes comme @app.post("/predict") seront accessibles via /api/predict.
 # 3. La doc Swagger (/api/docs) trouvera son fichier /api/openapi.json sans erreur.
 # Cela permet de simplifier le nginx.conf à un seul bloc 'location /api/'.
 # -----------------------------------------------------------------------------
-app = FastAPI(title="Accident ML API", root_path="/fastapi")
+app = FastAPI(title="Accident ML API", root_path="/api")
 
 
 # Configuration du chemin
