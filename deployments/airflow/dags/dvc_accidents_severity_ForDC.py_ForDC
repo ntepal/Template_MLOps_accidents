@@ -1,12 +1,8 @@
 import os
-
-from airflow.providers.docker.operators.docker import DockerOperator
-from airflow.providers.cncf.kubernetes.operators.pod import KubernetesPodOperator
-from kubernetes.client import models as k8s
-
 from airflow import DAG
 from airflow.utils.task_group import TaskGroup
 from airflow.decorators import task
+from airflow.providers.docker.operators.docker import DockerOperator
 #from airflow.providers.postgres.operators.postgres import PostgresOperator
 from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from docker.types import Mount
@@ -20,18 +16,16 @@ from airflow.operators.bash import BashOperator
 # Par défaut 1000 si jamais on est dans un environnement restreint
 # Le but est de l'utiliser dans les DockerOperators qui par défaut utilise root,
 # ce qui est une défaillance de sécurité
-#UID = os.getuid()
-#GID = os.getgid()
+UID = os.getuid()
+GID = os.getgid()
 
 # Configuration du chemin
 # Remonte par rapport au fichier actuel pour trouver la racine
-#PROJECT_PATH = "/home/ubuntu/Template_MLOps_accidents"
+PROJECT_PATH = "/home/ubuntu/Template_MLOps_accidents"
 # DANGER DU CHEMIN RELATIF qui n'est pas lu à partir du fichier dans Ubuntu
 # mais à partir du container Sceduler, ce qui ne permet pas de trouver les
 # fichiers dvc nécessaire pour les dags
 # PROJECT_PATH = Path(__file__).resolve().parent.parent.parent.parent.as_posix()
-
-NAMESPACE = "accidents-severity"
 
 # Chemins internes au Container Docker
 CONTAINER_HOME = "/app"
@@ -52,12 +46,10 @@ MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI", "http://mlflow_server:5000")
 MLFLOW_EXP = os.getenv("MLFLOW_EXPERIMENT_NAME", "accidents_severity")
 
 # On reconstruit le nom du réseau airflow comme dans docker-compose.yml
-#NETWORK_NAME = f"{PROJECT_NAME}_airflow-net"
+NETWORK_NAME = f"{PROJECT_NAME}_airflow-net"
 
 # image construite dans le Makefile, qui se situe à la racine
-#IMAGE_NAME = f"{PROJECT_NAME}-runner:1.0"
-# Adapté pour kubernetes
-IMAGE_NAME = f"docker.io/library/{PROJECT_NAME}-runner:1.0"
+IMAGE_NAME = f"{PROJECT_NAME}-runner:1.0"
 
 # Récupération de la variable (fait à chaque fois que Airflow scanne les Dag
 # train_year = Variable.get("TRAIN_YEAR", default_var="2019")
@@ -111,14 +103,14 @@ container_venv_env = {
 # NB: on ne monte que les ponts utiles, on peut garder CONTAINER_WORK_DIR = /app.
 # Ainsi tout ce qui n'est pas défini ci-dessous (et notemment /app/.ven) sera
 # bien pris dans l'image et non pas sur le terminal local (ici ubuntu)
-#def create_mount(path):
-#    """Génère un bind mount entre l'hôte et le conteneur."""
-#    path_target = path
-#    return Mount(
-#        source=f"{PROJECT_PATH}/{path}",
-#        target=f"{CONTAINER_WORK_DIR}/{path}",
-#        type="bind"
-#    )
+def create_mount(path):
+    """Génère un bind mount entre l'hôte et le conteneur."""
+    path_target = path
+    return Mount(
+        source=f"{PROJECT_PATH}/{path}",
+        target=f"{CONTAINER_WORK_DIR}/{path}",
+        type="bind"
+    )
 
 # Configuration chirurgicale compacte
 # persistance_mounts = [create_mount(p) for p in ["data", "mlflow_artifacts",
@@ -126,62 +118,33 @@ container_venv_env = {
 # persistance_mounts = [create_mount(p) for p in ["data", "reports", "simu_data_web"]]
 # Ajout de models utilisé par dvc pour stocker le modèle
 # Pour sauvegarder sur Dagshub il faut /data/mlruns_latest et donc déjà monté via data
-#persistance_mounts = (
-#    [create_mount(p) for p in ["data", "reports", "simu_data_web", "models"]]
-#)
+persistance_mounts = (
+    [create_mount(p) for p in ["data", "reports", "simu_data_web", "models"]]
+)
 #dvc_state_mounts = [create_mount(p) for p in [".dvc", "dvc.lock", "params.yaml"]]
-#dvc_state_mounts = [create_mount(p) for p in [".dvc", "dvc.lock", "params.yaml"]]
+dvc_state_mounts = [create_mount(p) for p in [".dvc", "dvc.lock", "params.yaml"]]
 
 # Seulement utile pour le débug. En mode produciton on peut le supprimer
 # Warning: modif à librairies constantes sinon conflit
 # dev_mounts = [create_mount(p) for p in ["src", "dvc.yaml", "models"]]
-#dev_mounts = [create_mount(p) for p in ["src", "dvc.yaml"]]
-
-
-# ---------------------------------------------------------------------
-# Volumes : remplacent les bind mounts du DockerOperator.
-# Un pod ne voit pas le disque de la VM => tout passe par des PVC.
-# ---------------------------------------------------------------------
-RUNNER_VOLUMES = [
-    k8s.V1Volume(
-        name="data",
-        persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
-            claim_name="fastapi-pvc")),
-    k8s.V1Volume(
-        name="artifacts",
-        persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
-            claim_name="mlflow-artifacts-pvc")),
-    k8s.V1Volume(
-        name="dvc-state",
-        persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
-            claim_name="dvc-state-pvc")),
-]
-
-RUNNER_VOLUME_MOUNTS = [
-    k8s.V1VolumeMount(name="data",      mount_path="/app/data"),
-    k8s.V1VolumeMount(name="artifacts", mount_path="/app/artifacts"),
-    # État DVC partagé entre les tâches : import écrit dvc.lock, process le relit
-    k8s.V1VolumeMount(name="dvc-state", mount_path="/app/.dvc",        sub_path="dvc"),
-    k8s.V1VolumeMount(name="dvc-state", mount_path="/app/dvc.lock",    sub_path="dvc.lock"),
-    k8s.V1VolumeMount(name="dvc-state", mount_path="/app/params.yaml", sub_path="params.yaml"),
-]
+dev_mounts = [create_mount(p) for p in ["src", "dvc.yaml"]]
 
 # On remplace "mlflow_artifacts" par le volume définit dans le docker-compose.yml
 # Ainsi dès que le volume est updaté par airflow, mlflow et api et train ont aussi
 # cet update. Type "volume" pour indiquer à Docker que c'est lui qui gère ce volume
 # en interne vu qu'il est déclaré dans le docker-compose.yml
-#mlflow_volume_mount = Mount(
-#    source=f"{PROJECT_NAME}_mlflow-artifacts-volume",
-#    target=f"{CONTAINER_WORK_DIR}/artifacts",
-#    # C'est un volume Docker
-#    type="volume"
-#)
+mlflow_volume_mount = Mount(
+    source=f"{PROJECT_NAME}_mlflow-artifacts-volume",
+    target=f"{CONTAINER_WORK_DIR}/artifacts",
+    # C'est un volume Docker
+    type="volume"
+)
 
 # On prête ces infos pour fournir le nom utilisateur
 # pour les id fournis dans dans os.getuid et os.getgid
-#user_id_mount = Mount(
-#    source='/etc/passwd', target='/etc/passwd', type='bind', read_only=True
-#)
+user_id_mount = Mount(
+    source='/etc/passwd', target='/etc/passwd', type='bind', read_only=True
+)
 
 # NB: En vérifiant, on voit que le groupe est toujours à root mais il est important
 # de le garder car en interne il sait que le groupe est bien le user
@@ -190,9 +153,9 @@ RUNNER_VOLUME_MOUNTS = [
 # Stabilité: évite que les librairies (OS, MLflow) ne plantent en cherchant
 # un groupe "fantôme".
 # Sécurité: maintient le processus dans un environnement non-root cohérent.
-#group_id_mount = Mount(
-#    source='/etc/group', target='/etc/group', type='bind', read_only=True
-#)
+group_id_mount = Mount(
+    source='/etc/group', target='/etc/group', type='bind', read_only=True
+)
 
 std_env = {
     **mlflow_env,
@@ -219,79 +182,38 @@ dvc_env = {
     #'VM_GROUP_ID': os.environ.get('VM_GROUP_ID'),
 }
 
-def runner_task(task_id, command, env=None):
-    """
-    Remplace common_DockerOperator_args() : au lieu de demander un conteneur
-    au daemon Docker, on demande un POD à l'API Kubernetes.
-    Le pod est créé, exécute la commande, puis est supprimé.
-    """
-    # env_vars n'accepte que des str : on filtre les None (os.environ.get)
-    # NB: logiquement pas de None mais juste au cas où!!!!
-    merged = {**std_env, **(env or {})}
-    env_vars = {k: str(v) for k, v in merged.items() if v is not None}
-
-    return KubernetesPodOperator(
-        task_id=task_id,
-        # Nom de pod : DNS-1123 => minuscules, tirets, pas d'underscore
-        name=f"runner-{task_id}".replace("_", "-").lower(),
-        namespace=NAMESPACE,
-        image=IMAGE_NAME,
-        # Image locale dans containerd, jamais tirée du web
-        image_pull_policy="Never",
-        cmds=["sh", "-c"],
-        arguments=[command],
-        env_vars=env_vars,
-        volumes=RUNNER_VOLUMES,
-        volume_mounts=RUNNER_VOLUME_MOUNTS,
-        # Remplace 'user': f"{UID}:{GID}" du DockerOperator
-        security_context=k8s.V1PodSecurityContext(run_as_user=1000, fs_group=1000),
-        # Airflow tourne DANS le cluster : pas de kubeconfig externe
-        in_cluster=True,
-        # Equivalent de auto_remove='force'
-        is_delete_operator_pod=True,
-        # Remonte les logs du pod dans l'UI Airflow
-        get_logs=True,
-        startup_timeout_seconds=300,
-    )
-
-# =====================================================================
-# ANCIENNE VERSION DOCKER COMPOSE (DockerOperator) — CONSERVÉE POUR MÉMOIRE
-# Incompatible Kubernetes : parle au daemon Docker via /var/run/docker.sock,
-# utilise des bind mounts depuis la VM et un réseau Docker nommé.
-# Remplacée par runner_task() ci-dessous (KubernetesPodOperator).
-# =====================================================================
-#def common_DockerOperator_args(env):
-#    """Génère les arguments communs en permettant de surcharger l'image."""
-#    return {
-#        'image': IMAGE_NAME,
-#        'network_mode': NETWORK_NAME,
-#        'environment': env,
-#        # On garantit que les DockerOperator utiliseront le usr user et non pas root qui
-#        # est le user par défaut et ainsi éviter tout conflit et défaillance de sécurité
-#        'user': f"{UID}:{GID}",
-#        # mounts ne supporte que le format liste: on concatène les listes
-#        'mounts': (
-#            persistance_mounts +
-#            dvc_state_mounts +
-#            dev_mounts +
-#            [mlflow_volume_mount, user_id_mount, group_id_mount]
-#        ),
-#        # Equivalent à faire cd /app/working_dir
-#        'working_dir': CONTAINER_WORK_DIR,
-#        # Une fois terminée, la tâche s'auto-détruit
-#        # Version récente de DockerOperator force <=> True
-#        'auto_remove': 'force',
-#        # Permet à Airflow (dans Docker) de parler au Docker de la machine
-#        # Ubuntu pour lancer les containers de tâches.
-#        'docker_url': "unix://var/run/docker.sock",
-#        # Ne pas demander à Ubuntu de monter quoi que ce soit d'automatique
-#        # dans /tmp. Ce n'est pas la peine car Airflow fournit déjà tout ce
-#        # qu'il faut via project_mount
-#        'mount_tmp_dir': False,
-#        # On force l'utilisation de l'image locale (déjà généré en interne)
-#        # Pour être sûr qu'il n'essaiera pas de chercher l'image sur le web
-#        "force_pull": False,
-#    }
+def common_DockerOperator_args(env):
+    """Génère les arguments communs en permettant de surcharger l'image."""
+    return {
+        'image': IMAGE_NAME,
+        'network_mode': NETWORK_NAME,
+        'environment': env,
+        # On garantit que les DockerOperator utiliseront le usr user et non pas root qui
+        # est le user par défaut et ainsi éviter tout conflit et défaillance de sécurité
+        'user': f"{UID}:{GID}",
+        # mounts ne supporte que le format liste: on concatène les listes
+        'mounts': (
+            persistance_mounts +
+            dvc_state_mounts +
+            dev_mounts +
+            [mlflow_volume_mount, user_id_mount, group_id_mount]
+        ),
+        # Equivalent à faire cd /app/working_dir
+        'working_dir': CONTAINER_WORK_DIR,
+        # Une fois terminée, la tâche s'auto-détruit
+        # Version récente de DockerOperator force <=> True
+        'auto_remove': 'force',
+        # Permet à Airflow (dans Docker) de parler au Docker de la machine
+        # Ubuntu pour lancer les containers de tâches.
+        'docker_url': "unix://var/run/docker.sock",
+        # Ne pas demander à Ubuntu de monter quoi que ce soit d'automatique
+        # dans /tmp. Ce n'est pas la peine car Airflow fournit déjà tout ce
+        # qu'il faut via project_mount
+        'mount_tmp_dir': False,
+        # On force l'utilisation de l'image locale (déjà généré en interne)
+        # Pour être sûr qu'il n'essaiera pas de chercher l'image sur le web
+        "force_pull": False,
+    }
 
 with DAG(
     dag_id="dvc_accidents_severity",
@@ -354,69 +276,59 @@ with DAG(
     with TaskGroup("ml_pipeline") as ml_pipeline:
         # Groupe DATA PREPARATION (Import + Process)
         with TaskGroup("data_preparation") as data_prep:
-            import_data  = runner_task("dvc_import",  "dvc repro import")
-            #import_data = DockerOperator(
-            #    task_id="dvc_import",
-            #    **common_DockerOperator_args(std_env),
-            #    command="dvc repro import",
-            #)
+            import_data = DockerOperator(
+                task_id="dvc_import",
+                **common_DockerOperator_args(std_env),
+                command="dvc repro import",
+            )
 
-            process_data = runner_task("dvc_process", "dvc repro process")
-            #process_data = DockerOperator(
-            #    task_id="dvc_process",
-            #    **common_DockerOperator_args(std_env),
-            #    command="dvc repro process",
-            #)
+            process_data = DockerOperator(
+                task_id="dvc_process",
+                **common_DockerOperator_args(std_env),
+                command="dvc repro process",
+            )
 
             import_data >> process_data
 
         # Groupe MODEL TRAINING (Train + Evaluate)
         with TaskGroup("model_train_and_eval") as model_workflow:
-            train_model = runner_task("dvc_train", "dvc repro train")
-            #train_model = DockerOperator(
-            #    task_id="dvc_train",
-            #    **common_DockerOperator_args(std_env),
-            #    command="dvc repro train",
-            #)
+            train_model = DockerOperator(
+                task_id="dvc_train",
+                **common_DockerOperator_args(std_env),
+                command="dvc repro train",
+            )
 
             # Dans ton TaskGroup ml_pipeline
-            evaluate_model = runner_task("dvc_evaluate", "dvc repro evaluate")
-            #evaluate_model = DockerOperator(
-            #    task_id="dvc_evaluate",
-            #    **common_DockerOperator_args(std_env),
-            #    command="dvc repro evaluate",
-            #)
+            evaluate_model = DockerOperator(
+                task_id="dvc_evaluate",
+                **common_DockerOperator_args(std_env),
+                command="dvc repro evaluate",
+            )
 
             train_model >> evaluate_model
 
         with TaskGroup("dvc_tracking_and_push") as dvc_tracking:
-            dvc_hash_task = runner_task("dvc_hash", "dvc repro hash")
-            #dvc_hash_task = DockerOperator(
-            #    task_id="dvc_hash",
-            #    # On importe tous les paramètres communs
-            #    **common_DockerOperator_args(std_env),
-            #    command="dvc repro dvc_hash",
-            #)
+            dvc_hash_task = DockerOperator(
+                task_id="dvc_hash",
+                # On importe tous les paramètres communs
+                **common_DockerOperator_args(std_env),
+                command="dvc repro dvc_hash",
+            )
             # dvc add inutile car fait par défaut avec dvc repro
             # grâce au dvc.yaml
-            dvc_push_task = runner_task("dvc_push", "dvc push", "dvc_env")
-            #dvc_push_task = DockerOperator(
-            #    task_id="dvc_push",
-            #    # On importe tous les paramètres communs
-            #    **common_DockerOperator_args(dvc_env),
-            #    command="dvc push",
-            #)
-            dagshub_upd_version = runner_task(
-                "dagshub_upd_version",
-                "python3 /app/src/mlflow/dagshub_upd_version.py",
-                "dvc_env"
+            dvc_push_task = DockerOperator(
+                task_id="dvc_push",
+                # On importe tous les paramètres communs
+                **common_DockerOperator_args(dvc_env),
+                command="dvc push",
             )
-            #dagshub_upd_version = DockerOperator(
-            #    task_id="dagshub_upd_version",
-            #    # On importe tous les paramètres communs
-            #    **common_DockerOperator_args(dvc_env),
-            #   command='python3 /app/src/mlflow/dagshub_upd_version.py',
-            #)
+            dagshub_upd_version = DockerOperator(
+                task_id="dagshub_upd_version",
+                # On importe tous les paramètres communs
+                **common_DockerOperator_args(dvc_env),
+               command='python3 /app/src/mlflow/dagshub_upd_version.py',
+            )
+
 
             dvc_hash_task >> dvc_push_task >> dagshub_upd_version
 

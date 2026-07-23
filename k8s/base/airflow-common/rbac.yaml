@@ -1,0 +1,32 @@
+# k8s/base/airflow-common/rbac.yaml
+# Le worker Airflow doit avoir la permission de créer des pods.
+# Le ServiceAccount par défaut ne l'a pas :
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: airflow
+  namespace: accidents-severity
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: airflow-pod-manager
+  namespace: accidents-severity
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "pods/log", "pods/exec"]
+    verbs: ["create", "get", "list", "watch", "delete", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: airflow-pod-manager
+  namespace: accidents-severity
+subjects:
+  - kind: ServiceAccount
+    name: airflow
+    namespace: accidents-severity
+roleRef:
+  kind: Role
+  name: airflow-pod-manager
+  apiGroup: rbac.authorization.k8s.io

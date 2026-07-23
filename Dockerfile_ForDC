@@ -35,53 +35,34 @@ COPY --from=ghcr.io/astral-sh/uv:0.11.3 /uv /bin/uv
 # -------------------------------------------------------
 # ------ Préparation de l'environnement de travail ------
 # -------------------------------------------------------
-RUN useradd --uid 1000 --create-home --shell /bin/bash appuser
 # Création du répertoire de travail
 WORKDIR /app
 # On prépare TOUS les points d'ancrage (dossiers) utilisés par les dags
 # Dans le dag, on monte un pont (bind) pour chacun de ceux ci-dessous
 # Ainsi on garantit la structure pour l'utilisation par les dags
-#RUN mkdir -p data reports simu_data_web .dvc
+RUN mkdir -p data reports simu_data_web .dvc
 # On créer des fichiers vides pour les verrous/params 
 # pour être sûr que Docker ne les transforme pas en dossiers
-#RUN touch dvc.lock params.yaml
-# 1 seul RUN au lieu de 2 donc une seul couche rajoutée (layer) au lieu de 2 dans l'image
-RUN mkdir -p data reports simu_data_web .dvc \
-    && touch dvc.lock params.yaml \
-    && chown -R 1000:1000 /app
+RUN touch dvc.lock params.yaml
 
 # -------------------------------------------------------
 # --------------------- Dépendances ---------------------
 # -------------------------------------------------------
-USER 1000
 # Copier les fichiers de dépendances dans le répertoire courant (= de travail)
-#COPY pyproject.toml uv.lock /app/
-COPY --chown=1000:1000 pyproject.toml uv.lock /app/
+COPY pyproject.toml uv.lock /app/
 # Installer les dépendances 
 # --frozen : utiliser le .lock en READ ONLY
 # --no-cache : ne pas sauvegarder dans le cache car inutile (et image plus lourde)
 # --no-install-project : NE PAS exiger la présence immédiate du dossier src/ (faite dans le COPY . .)
 #                        Ainsi, on s'assure de ne pas recommencer la réinstallation complète des 
 #                        librairies (couteux en temps) à chaque modification d'une ligne dans scr
-# uv sync crée .venv dans /app. Donc rajoute une couche.
-# Mais comme .venv est dans .dockerignore, il n'est pas dans l'image et donc /app est toujours vide
-# Avec le copy qui suit, pas de risque de duplication
 RUN uv sync --frozen --no-cache --no-install-project
 
 # -------------------------------------------------------
 # -------- Code source et installation locale -----------
 # -------------------------------------------------------
 # Copier TOUS vers /app/
-#COPY . /app/
-#COPY --chown=1000:1000 . /app/ ==> ça ajoute src/, dvc.yaml, etc. → couche B
-# COPY en 2 temps (pattern standard) :
-#   1. pyproject.toml + uv.lock  -> puis uv sync (coûteux, plusieurs minutes)
-#   2. tout le reste (src/, dvc.yaml...) -> puis uv pip install -e . (rapide)
-# Ainsi une modif dans src/ N'INVALIDE QUE CETTE COUCHE-CI ET et les SUIVANTES ;
-# le uv sync au-dessus reste en cache => build très rapide en itération.
-# NB : ce COPY recopie aussi pyproject.toml et uv.lock (déjà présents), mais
-# ils font quelques centaines de Ko : négligeable au regard du gain.
-COPY --chown=1000:1000 . /app/
+COPY . /app/
 # Installation du projet en mode éditable (-e).
 # Le "." indique à uv/pip que la racine du projet est le répertoire actuel (WORKDIR /app).
 # Cela crée un lien logique permettant à Python d'importer les modules depuis /app,

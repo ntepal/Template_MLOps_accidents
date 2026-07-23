@@ -50,6 +50,7 @@ RUN mkdir -p data reports simu_data_web .dvc \
     && touch dvc.lock params.yaml \
     && chown -R 1000:1000 /app
 
+
 # -------------------------------------------------------
 # --------------------- Dépendances ---------------------
 # -------------------------------------------------------
@@ -63,9 +64,8 @@ COPY --chown=1000:1000 pyproject.toml uv.lock /app/
 # --no-install-project : NE PAS exiger la présence immédiate du dossier src/ (faite dans le COPY . .)
 #                        Ainsi, on s'assure de ne pas recommencer la réinstallation complète des 
 #                        librairies (couteux en temps) à chaque modification d'une ligne dans scr
-# uv sync crée .venv dans /app. Donc rajoute une couche.
-# Mais comme .venv est dans .dockerignore, il n'est pas dans l'image et donc /app est toujours vide
-# Avec le copy qui suit, pas de risque de duplication
+# uv sync crée /app/.venv (ajoute une couche) mais .venv est exclus de l'image via le .dockerignore
+# Donc dans l'image on a toujours /app qui est vide
 RUN uv sync --frozen --no-cache --no-install-project
 
 # -------------------------------------------------------
@@ -73,14 +73,7 @@ RUN uv sync --frozen --no-cache --no-install-project
 # -------------------------------------------------------
 # Copier TOUS vers /app/
 #COPY . /app/
-#COPY --chown=1000:1000 . /app/ ==> ça ajoute src/, dvc.yaml, etc. → couche B
-# COPY en 2 temps (pattern standard) :
-#   1. pyproject.toml + uv.lock  -> puis uv sync (coûteux, plusieurs minutes)
-#   2. tout le reste (src/, dvc.yaml...) -> puis uv pip install -e . (rapide)
-# Ainsi une modif dans src/ N'INVALIDE QUE CETTE COUCHE-CI ET et les SUIVANTES ;
-# le uv sync au-dessus reste en cache => build très rapide en itération.
-# NB : ce COPY recopie aussi pyproject.toml et uv.lock (déjà présents), mais
-# ils font quelques centaines de Ko : négligeable au regard du gain.
+
 COPY --chown=1000:1000 . /app/
 # Installation du projet en mode éditable (-e).
 # Le "." indique à uv/pip que la racine du projet est le répertoire actuel (WORKDIR /app).

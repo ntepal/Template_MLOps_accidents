@@ -20,7 +20,7 @@ spec:
     spec:
       # Comme dans le deployment de mlflow pour s'assurer des droits identiques partout
       #securityContext:
-        #runAsUser: 1000
+        #runAsUser: 50000
         # Le Dokcerfile le fait en root
         #runAsGroup: 0
         #fsGroup: 0

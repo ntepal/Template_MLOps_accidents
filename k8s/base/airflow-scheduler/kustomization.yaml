@@ -34,5 +34,13 @@ secretGenerator:
       - ../airflow-common/.env.secret
 
 resources:
+  # RBAC (ServiceAccount + Role + RoleBinding) : objets UNIQUES du namespace.
+  # Déclarés ici seulement, pas dans le worker : les dupliquer ne casserait rien
+  # (kubectl apply est idempotent) mais on aurait la même définition à 2 endroits,
+  # avec le risque de les faire diverger.
+  # Le scheduler étant déployé AVANT le worker, le ServiceAccount "airflow"
+  # existe déjà quand le worker démarre — il n'a qu'à le référencer via
+  # serviceAccountName: airflow dans son deployment.
   - ../airflow-common/pvc.yaml
+  - ../airflow-common/rbac.yaml
   - deployment-scheduler.yaml
