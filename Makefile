@@ -1546,6 +1546,7 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 	$(MAKE) -s kubernetes-deploy-job JOB=create-mlflow-db TIMEOUT=300s DIR=mlflow-db
 	$(MAKE) -s kubernetes-deploy-job JOB=airflow-init TIMEOUT=600s DIR=airflow-init
 	$(MAKE) -s kubernetes-deploy-job JOB=airflow-set-variables TIMEOUT=600s DIR=airflow-set
+	$(MAKE) -s kubernetes-deploy-job JOB=dvc-state-init TIMEOUT=600s DIR=dvc-state
 	$(MAKE) -s kubernetes-save-job-logs
 	$(MAKE) -s kubernetes-deploy-service SERVICE=mlflow TIMEOUT=300s
 	$(MAKE) -s kubernetes-deploy-service SERVICE=airflow-webserver TIMEOUT=600s

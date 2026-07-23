@@ -1,0 +1,37 @@
+# k8s/base/jobs/dvc-state/dvc-state-init.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: dvc-state-init
+  namespace: accidents-severity
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: init
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              # Un subPath pointant vers un FICHIER doit exister avant le montage,
+              # sinon kubelet le crée comme un RÉPERTOIRE => "Is a directory"
+              # au premier "echo > /app/params.yaml".
+              mkdir -p /state/dvc
+              touch /state/dvc.lock /state/params.yaml
+              ls -la /state
+              echo "✅ dvc-state initialisé"
+          volumeMounts:
+            - name: dvc-state
+              mountPath: /state
+      volumes:
+        - name: dvc-state
+          persistentVolumeClaim:
+            claimName: dvc-state-pvc

@@ -1,0 +1,6 @@
+# k8s/base/jobs/dvc-state/kustomization.yaml
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../airflow-common/pvc.yaml
+  - dvc-state-init.yaml

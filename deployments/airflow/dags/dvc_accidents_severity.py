@@ -336,20 +336,26 @@ with DAG(
     # Ainsi, pour chaque Docker qui fait dvc ..., le dvc.yaml est lu et
     # DVC sait qu'il doit chercher le params.yaml pour obtenir la valeur
     # de TRAIN_YEAR
-    prepare_params = BashOperator(
-        task_id='prepare_params_file',
-        bash_command=(
-            # Ici quand on clique sur le bouton = flèche pour Trigger DAG
-            #f'echo "TRAIN_YEAR: {{{{ dag_run.conf.get("year", 2019) }}}}"'
-            # Ici, on passe par la variable dans Admin/Variable
-            # Le premier echo est pour l'affichage dans les logs
-            f'echo "--- PREPARE PARAMS: Setting TRAIN_YEAR to '
-            f'{{{{ var.value.get("TRAIN_YEAR", "2019") }}}} ---" && '
-            f'echo "TRAIN_YEAR: {{{{ var.value.get("TRAIN_YEAR", "2019") }}}}" '
-            f'> {AIRFLOW_PATH}/params.yaml'
-        )
-    )
+#    prepare_params = BashOperator(
+#        task_id='prepare_params_file',
+#        bash_command=(
+#            # Ici quand on clique sur le bouton = flèche pour Trigger DAG
+#            #f'echo "TRAIN_YEAR: {{{{ dag_run.conf.get("year", 2019) }}}}"'
+#            # Ici, on passe par la variable dans Admin/Variable
+#            # Le premier echo est pour l'affichage dans les logs
+#            f'echo "--- PREPARE PARAMS: Setting TRAIN_YEAR to '
+#            f'{{{{ var.value.get("TRAIN_YEAR", "2019") }}}} ---" && '
+#            f'echo "TRAIN_YEAR: {{{{ var.value.get("TRAIN_YEAR", "2019") }}}}" '
+#            f'> {AIRFLOW_PATH}/params.yaml'
+#        )
+#    )
 
+    prepare_params = runner_task(
+        "prepare_params_file",
+        'echo "--- PREPARE PARAMS: TRAIN_YEAR={{ var.value.get(\'TRAIN_YEAR\', \'2019\') }} ---" && '
+        'echo "TRAIN_YEAR: {{ var.value.get(\'TRAIN_YEAR\', \'2019\') }}" > /app/params.yaml && '
+        'cat /app/params.yaml',
+    )
     # 2. Pipeline Machine Learning (Containers)
     with TaskGroup("ml_pipeline") as ml_pipeline:
         # Groupe DATA PREPARATION (Import + Process)
