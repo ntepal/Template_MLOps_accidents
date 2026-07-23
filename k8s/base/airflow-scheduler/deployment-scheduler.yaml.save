@@ -121,20 +121,18 @@ spec:
           # startupProbe: inutile car démarrage rapide
 
           # Vérification périodique pour savoir si le pod peut recevoir du trafic
-          # Readiness = "peut-il recevoir du travail ?" => vérification fonctionnelle.
-          # --local résout le hostname via hostname_callable (get_host_ip_address),
-          # donc correspond à ce que le scheduler a enregistré en base.
-          # --hostname "$AIRFLOW_HOSTNAME" (nom du pod) ne matchait plus depuis
-          # le passage à get_host_ip_address => "No alive jobs found" => readiness
-          # KO => kubelet tuait un scheduler pourtant parfaitement sain.
+          # --local : résout le hostname via hostname_callable (ici
+          # get_host_ip_address), donc correspond à ce que le scheduler
+          # a enregistré en base. --hostname "$AIRFLOW_HOSTNAME" (nom du
+          # pod) ne matchait plus depuis le passage à get_host_ip_address
+          # => "No alive jobs found" => readiness KO => kubelet tue le pod.
           readinessProbe:
             # NB: HOSTNAME est fourni automatiquement
             exec:
               command:
                 - bash
                 - -c
-                - airflow jobs check --job-type SchedulerJob --local
-                #- airflow jobs check --job-type SchedulerJob --hostname "$AIRFLOW_HOSTNAME"
+                - airflow jobs check --job-type SchedulerJob --hostname 
             initialDelaySeconds: 60
             periodSeconds: 30
             timeoutSeconds: 30
@@ -151,8 +149,7 @@ spec:
               command:
                 - bash
                 - -c
-                - pgrep -f "airflow scheduler" > /dev/null
-                #- airflow jobs check --job-type SchedulerJob --hostname "$AIRFLOW_HOSTNAME"
+                - airflow jobs check --job-type SchedulerJob --hostname "$AIRFLOW_HOSTNAME"
             initialDelaySeconds: 60
             periodSeconds: 60
             timeoutSeconds: 30

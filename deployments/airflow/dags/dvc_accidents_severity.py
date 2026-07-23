@@ -399,7 +399,7 @@ with DAG(
             #)
             # dvc add inutile car fait par défaut avec dvc repro
             # grâce au dvc.yaml
-            dvc_push_task = runner_task("dvc_push", "dvc push", "dvc_env")
+            dvc_push_task = runner_task("dvc_push", "dvc push", dvc_env)
             #dvc_push_task = DockerOperator(
             #    task_id="dvc_push",
             #    # On importe tous les paramètres communs
@@ -409,7 +409,7 @@ with DAG(
             dagshub_upd_version = runner_task(
                 "dagshub_upd_version",
                 "python3 /app/src/mlflow/dagshub_upd_version.py",
-                "dvc_env"
+                dvc_env
             )
             #dagshub_upd_version = DockerOperator(
             #    task_id="dagshub_upd_version",

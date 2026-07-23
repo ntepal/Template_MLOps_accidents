@@ -70,7 +70,13 @@ COPY --chown=airflow:0 pyproject.toml uv.lock /app/
 #RUN uv export --frozen --output-file uv_lock_format_pour_pip.txt
 #RUN uv pip install --no-cache --system -r uv_lock_format_pour_pip.txt
 #RUN rm uv_lock_format_pour_pip.txt
-RUN uv export --frozen --output-file /tmp/requirements.txt \
+#--no-emit-project cat on a mis en commentaire COPY --chown=airflow:0 src /app/src/
+# --no-emit-project : n'exporte QUE les dépendances, pas le package du projet.
+# Nécessaire car on ne copie plus src/ dans cette image (COPY src commenté
+# plus haut : les DAGs n'importent rien de src/, le code métier vit dans
+# l'image runner). Sans ce flag, uv met "template-mlops-accidents @ file:///app"
+# dans le requirements.txt et pip échoue : "Expected a Python module at /app".
+RUN uv export --frozen --no-emit-project --output-file /tmp/requirements.txt \
     && uv pip install --no-cache --system -r /tmp/requirements.txt \
     && rm /tmp/requirements.txt
 # On repasse en utilisateur airflow (pour écrire dans les sous-répertoires de airflow)
