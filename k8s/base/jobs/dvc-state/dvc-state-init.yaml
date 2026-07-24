@@ -27,8 +27,13 @@ spec:
               # --- État DVC ---
               # Un subPath pointant vers un FICHIER doit exister avant le montage,
               # sinon kubelet le crée comme un RÉPERTOIRE => "Is a directory".
+              #mkdir -p /state/dvc
+              #touch /state/dvc.lock /state/params.yaml
               mkdir -p /state/dvc
-              touch /state/dvc.lock /state/params.yaml
+              # Un dvc.lock VIDE échoue à la validation ("required key not provided, in schema") : DVC 3.x attend au minimum la clé schema.
+              # [ -s ] teste "non vide" => on n'écrase pas un lock déjà produit par un run précédent.
+              [ -s /state/dvc.lock ]   || echo "schema: '2.0'" > /state/dvc.lock
+              [ -s /state/params.yaml ] || echo "TRAIN_YEAR: 2019" > /state/params.yaml
               # DVC exige un dépôt Git, absent de l'image (.git exclu par
               # .dockerignore). Aucun stage du dvc.yaml n'utilise le SCM,
               # donc --no-scm suffit.

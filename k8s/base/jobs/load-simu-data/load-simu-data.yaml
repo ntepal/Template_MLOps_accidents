@@ -1,0 +1,45 @@
+# k8s/base/jobs/load-simu-data/load-simu-data.yaml
+# volume avec nom simu-data-web (et non pas simu_data_web): 
+# CAR les noms de volumes Kubernetes suivent la norme DNS-1123 — minuscules, chiffres et tirets uniquement. Pas d'underscore.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: load-simu-data
+  namespace: accidents-severity
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    spec:
+      restartPolicy: OnFailure
+      securityContext:
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: loader
+          image: busybox:1.36
+          command: ["sh", "-c"]
+          args:
+            - |
+              set -e
+              cp -a /simu-data-web/. /pipeline/simu_data_web/
+              ls -la /pipeline/simu_data_web/ | head
+              echo "✅ CSV de simulation chargés"
+          volumeMounts:
+            - { name: simu-data-web,     mountPath: /simu-data-web, readOnly: true }
+            - { name: pipeline, mountPath: /pipeline }
+      volumes:
+        # hostPath : SEUL endroit du projet qui dépend du disque de la VM.
+        # Justification : simu_data_web simule une source web externe. Les CSV
+        # du vrai site sont mal formatés, d'où ce jeu de simulation local.
+        # Isolé dans ce Job pour que les pods de TÂCHES ne dépendent que du PVC.
+        # EN CONTEXTE INDUSTRIEL : remplacer par un "dvc pull" depuis DagsHub
+        # (remote déjà configuré) ou un téléchargement S3 => plus aucune
+        # dépendance à la machine, reproductible sur n'importe quel cluster.
+        - name: simu-data-web
+          hostPath:
+            path: /home/ubuntu/Template_MLOps_accidents/simu_data_web
+            type: Directory
+        - name: pipeline
+          persistentVolumeClaim:
+            claimName: pipeline-data-pvc

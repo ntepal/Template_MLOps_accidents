@@ -1547,6 +1547,12 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 	$(MAKE) -s kubernetes-deploy-job JOB=airflow-init TIMEOUT=600s DIR=airflow-init
 	$(MAKE) -s kubernetes-deploy-job JOB=airflow-set-variables TIMEOUT=600s DIR=airflow-set
 	$(MAKE) -s kubernetes-deploy-job JOB=dvc-state-init TIMEOUT=600s DIR=dvc-state
+	@# A faire APRÈS dvc-state-init car c'est lui qui crée le répertoire simu_data_web dans le PVC pipeline-data-pvc
+	@# (mkdir -p /pipeline/simu_data_web).
+	@# Ce job-ci ne fait que le REMPLIR avec les CSV de la VM (hostPath).
+	@# Les pods de tâches y accèderont ensuite via le volumeMount du DAG :
+	@#   V1VolumeMount(name="pipeline", mount_path="/app/simu_data_web", sub_path="simu_data_web")
+	$(MAKE) -s kubernetes-deploy-job JOB=load-simu-data TIMEOUT=300s DIR=load-simu-data
 	$(MAKE) -s kubernetes-save-job-logs
 	$(MAKE) -s kubernetes-deploy-service SERVICE=mlflow TIMEOUT=300s
 	$(MAKE) -s kubernetes-deploy-service SERVICE=airflow-webserver TIMEOUT=600s
