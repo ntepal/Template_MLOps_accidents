@@ -403,7 +403,7 @@ with DAG(
             train_model >> evaluate_model
 
         with TaskGroup("dvc_tracking_and_push") as dvc_tracking:
-            dvc_hash_task = runner_task("dvc_hash", "dvc repro hash")
+            dvc_hash_task = runner_task("dvc_hash", "dvc repro dvc_hash")
             #dvc_hash_task = DockerOperator(
             #    task_id="dvc_hash",
             #    # On importe tous les paramètres communs
