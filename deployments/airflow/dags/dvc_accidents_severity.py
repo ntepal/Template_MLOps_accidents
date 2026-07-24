@@ -155,6 +155,10 @@ RUNNER_VOLUMES = [
         name="dvc-state",
         persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
             claim_name="dvc-state-pvc")),
+    k8s.V1Volume(
+        name="pipeline",
+        persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(
+            claim_name="pipeline-data-pvc")),
 ]
 
 RUNNER_VOLUME_MOUNTS = [
@@ -164,6 +168,9 @@ RUNNER_VOLUME_MOUNTS = [
     k8s.V1VolumeMount(name="dvc-state", mount_path="/app/.dvc",        sub_path="dvc"),
     k8s.V1VolumeMount(name="dvc-state", mount_path="/app/dvc.lock",    sub_path="dvc.lock"),
     k8s.V1VolumeMount(name="dvc-state", mount_path="/app/params.yaml", sub_path="params.yaml"),
+    k8s.V1VolumeMount(name="pipeline", mount_path="/app/simu_data_web", sub_path="simu_data_web"),
+    k8s.V1VolumeMount(name="pipeline", mount_path="/app/models",        sub_path="models"),
+    k8s.V1VolumeMount(name="pipeline", mount_path="/app/reports",       sub_path="reports"),
 ]
 
 # On remplace "mlflow_artifacts" par le volume définit dans le docker-compose.yml
