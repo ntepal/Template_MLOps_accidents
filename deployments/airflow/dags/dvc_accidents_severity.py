@@ -212,8 +212,14 @@ dvc_env = {
     'DVC_REMOTE': os.environ.get('DVC_REMOTE'),
     'DAGSHUB_USER': os.environ.get('DAGSHUB_USER'),
     'DAGSHUB_REPO_NAME': os.environ.get('DAGSHUB_REPO_NAME'),
-    'AWS_ACCESS_KEY_ID': os.environ.get('AWS_ACCESS_KEY_ID'),
-    'AWS_SECRET_ACCESS_KEY': os.environ.get('AWS_SECRET_ACCESS_KEY'),
+    #'AWS_ACCESS_KEY_ID': os.environ.get('AWS_ACCESS_KEY_ID'),
+    #'AWS_SECRET_ACCESS_KEY': os.environ.get('AWS_SECRET_ACCESS_KEY'),
+    # DagsHub expose une API compatible S3 : boto3 (utilisé par DVC) attend
+    # les noms AWS_*, alors que le secret Kubernetes les stocke sous
+    # DAGSHUB_S3_*. Ce mapping était fait dans docker-compose.yml
+    # (AWS_ACCESS_KEY_ID: ${DAGSHUB_S3_ACCESS_KEY_ID}) — il faut le refaire ici.
+    'AWS_ACCESS_KEY_ID': os.environ.get('DAGSHUB_S3_ACCESS_KEY_ID'),
+    'AWS_SECRET_ACCESS_KEY': os.environ.get('DAGSHUB_S3_SECRET_ACCESS_KEY'),
     'AWS_ENDPOINT_URL': os.environ.get('AWS_ENDPOINT_URL'),
     'MLFLOW_TRACKING_USERNAME': os.environ.get('MLFLOW_TRACKING_USERNAME'),
     'MLFLOW_TRACKING_PASSWORD': os.environ.get('MLFLOW_TRACKING_PASSWORD'),

@@ -1,5 +1,21 @@
 # k8s/base/jobs/dvc-state/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
+
+# Sans cette option, kustomize ajoute un hash au nom (airflow-config-xxxx)
+# et le "configMapRef: name: airflow-config" du Job ne le trouverait pas.
+generatorOptions:
+  disableNameSuffixHash: true
+
+configMapGenerator:
+  - name: airflow-config
+    envs:
+      - ../../airflow-common/.env.config
+
+secretGenerator:
+  - name: airflow-secret
+    envs:
+      - ../../airflow-common/.env.secret
+
 kind: Kustomization
 resources:
   - ../../airflow-common/pvc.yaml

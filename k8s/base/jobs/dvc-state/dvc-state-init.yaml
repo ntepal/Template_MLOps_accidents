@@ -51,7 +51,15 @@ spec:
               # -f : écrase le /app/.dvc vide créé par le Dockerfile (et permet de relancer ce Job sans erreur).
               # -q : sortie réduite (n'affiche que les erreurs et pas les infos)
               dvc init --no-scm -f -q
+              # dvc init crée un config VIERGE : le remote DagsHub doit être
+              # déclaré explicitement, sinon "dvc push" échoue avec
+              # "no remote specified in /app".
+              # Valeurs reprises du .dvc/config de la VM (source de vérité).
+              dvc remote add -d origin s3://dvc --force
+              dvc remote modify origin endpointurl \
+                  "https://dagshub.com/${DAGSHUB_USER}/${DAGSHUB_REPO_NAME}.s3"
               cp -a /app/.dvc/. /state/dvc/
+              echo "--- config DVC ---" && cat /state/dvc/config
               # --- Données du pipeline ---
               # simu_data_web : source des CSV (dep du stage import)
               # models / reports : outs de train et evaluate, partagés entre pods
@@ -59,6 +67,11 @@ spec:
               echo "--- /state ---"    && ls -la /state /state/dvc
               echo "--- /pipeline ---" && ls -la /pipeline
               echo "✅ volumes initialisés"
+          envFrom:
+            - configMapRef:
+                name: airflow-config
+            - secretRef:
+                name: airflow-secret
           volumeMounts:
             - name: dvc-state
               mountPath: /state
