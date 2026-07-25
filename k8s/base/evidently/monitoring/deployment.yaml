@@ -61,8 +61,33 @@ spec:
             - name: workspace
               mountPath: /app/data/evidently
               #mountPath: /workspace
+            # Pour partager les KPIs drifts écrits pas fastapi dans le fichier data/users/fastapi_data.csv
+            #- name: fastapi-users
+            #  mountPath: /app/data/users
+              # fastapi-pvc contient à sa racine : users/, raw/, preprocessed/, evidently/...
+              # avec le CSV à users/fastapi_data.csv
+              #
+              # SANS subPath : monte la RACINE du PVC sur /app/data/users
+              #   => le CSV se retrouve à /app/data/users/users/fastapi_data.csv (users en double)
+              # AVEC subPath: users : monte le SOUS-DOSSIER users/ du PVC sur /app/data/users
+              #   => le CSV est à /app/data/users/fastapi_data.csv (là où le démon le lit)
+            #  subPath: users
+
+            # En fait le daemon a besoin de users et preprocess donc autant lui donner les droits
+            - name: fastapi-data
+              mountPath: /app/data
 
       volumes:
         - name: workspace
           persistentVolumeClaim:
             claimName: evidently-pvc
+        # On partage le même volume que fastapi
+        # Inutile de le mettre dans kustomization car déjà fait dans le kustomization de fastapi
+        # Et surtout important de ne pas le faire sinon on le référence 2 fois et donc conflit
+        # Mais il faut s'assurer que evidently est bien lancé après fastapi
+        #- name: fastapi-users
+        #  persistentVolumeClaim:
+        #    claimName: fastapi-pvc
+        - name: fastapi-data
+          persistentVolumeClaim:
+            claimName: fastapi-pvc

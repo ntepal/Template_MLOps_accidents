@@ -1,0 +1,110 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cadvisor
+  labels:
+    app: cadvisor
+
+spec:
+  selector:
+    matchLabels:
+      app: cadvisor
+
+  template:
+    metadata:
+      labels:
+        app: cadvisor
+
+    spec:
+      # Kubernetes injecte un "ServiceAccountToken" dans chaque pod pour que l'application puisse,
+      # si elle le souhaite, interroger l'API du cluster (pour lister d'autres pods, créer des services, etc.).
+      # Mais pour des outils "système" comme cAdvisor (qui surveille la machine) ou des conteneurs qui montent la racine de l'hôte en lecture seule,
+      # cette fonctionnalité est redondante et problématique.
+      # Contrainte cAdvisor : cAdvisor est un espion système. Il a besoin de voir tout ce qui se passe sur le serveur hôte.
+      # Pour y arriver, on monte la racine du serveur (/) dans le conteneur.
+      # Comme la racine de l'hôte est montée en lecture seule (ro), Kubernetes échoue à écrire le jeton d'accès dans le conteneur au démarrage.
+      # Le processus Kubernetes (le kubelet) se dit : "Je ne peux pas monter les secrets de sécurité requis, donc je refuse de lancer le pod."
+      # Pour cAdvisor, le token est inutile car il n'a pas besoin de parler à l'API Kubernetes. Il a juste besoin de lire les métriques du noyau Linux.
+      # Si absent (true par défaut) Kubernetes crée systématiquement un volume kube-api-access-xxx
+      # et tente de le monter dans /var/run/secrets/.... 
+      # Le système essaie de créer ce chemin dans le système de fichiers, ce qui échoue car la racine (/) est en read-only.
+      automountServiceAccountToken: false
+      containers:
+        - name: cadvisor
+          image: gcr.io/cadvisor/cadvisor:v0.49.1
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 8080
+
+          # sans le security, cAdvisor ne fonctionne PAS correctement
+          securityContext:
+            privileged: true
+
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
+
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            #initialDelaySeconds: 10
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 5
+
+          volumeMounts:
+            - name: rootfs
+              mountPath: /rootfs
+              readOnly: true
+
+            - name: var-run
+              mountPath: /var/run
+              readOnly: true
+
+            - name: sys
+              mountPath: /sys
+              readOnly: true
+
+            - name: docker
+              mountPath: /var/lib/docker
+              readOnly: true
+
+            - name: disk
+              mountPath: /dev/disk
+              readOnly: true
+
+            - name: cgroup
+              mountPath: /sys/fs/cgroup
+              readOnly: true
+
+      volumes:
+        - name: rootfs
+          hostPath:
+            path: /
+
+        - name: var-run
+          hostPath:
+            path: /var/run
+
+        - name: sys
+          hostPath:
+            path: /sys
+
+        - name: docker
+          hostPath:
+            path: /var/lib/docker
+
+        - name: disk
+          hostPath:
+            path: /dev/disk
+
+        - name: cgroup
+          hostPath:
+            path: /sys/fs/cgroup

@@ -17,7 +17,8 @@ datasources:
     # pour interroger Prometheus et récupérer les données en arrière-plan
     access: proxy
     # URL interne au réseau Docker (avec le préfixe de route)
-    url: http://prometheus:9090/prometheus
+    #url: http://prometheus:9090/prometheus
+    url: http://prometheus:80/prometheus
     # Par défaut, les nouveaux graphiques créés utilisent les données Prometheus
     isDefault: true
     # On peut modifier cette configuration via l'interface web de Grafana

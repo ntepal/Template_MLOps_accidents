@@ -34,6 +34,13 @@ spec:
           image: gcr.io/cadvisor/cadvisor:v0.49.1
           imagePullPolicy: IfNotPresent
 
+          # Sous k3s, les conteneurs sont dans containerd, pas Docker.
+          # On pointe cAdvisor vers le socket containerd de k3s et on
+          # neutralise la recherche Docker (/var/lib/docker est vide).
+          args:
+            - --containerd=/run/k3s/containerd/containerd.sock
+            - --docker=unix:///dev/null
+
           ports:
             - containerPort: 8080
 
@@ -46,14 +53,18 @@ spec:
               path: /healthz
               port: 8080
             initialDelaySeconds: 5
-            periodSeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 5
 
           livenessProbe:
             httpGet:
               path: /healthz
               port: 8080
-            initialDelaySeconds: 10
-            periodSeconds: 15
+            #initialDelaySeconds: 10
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 5
 
           volumeMounts:
             - name: rootfs
@@ -68,8 +79,12 @@ spec:
               mountPath: /sys
               readOnly: true
 
-            - name: docker
-              mountPath: /var/lib/docker
+            # ── remplace l'ancien bloc "docker" ──
+            #- name: docker
+            #  mountPath: /var/lib/docker
+            #  readOnly: true
+            - name: containerd
+              mountPath: /run/k3s/containerd/containerd.sock
               readOnly: true
 
             - name: disk
@@ -93,9 +108,14 @@ spec:
           hostPath:
             path: /sys
 
-        - name: docker
+        # ── remplace l'ancien volume "docker" ──
+        #- name: docker
+        #  hostPath:
+        #    path: /var/lib/docker
+        - name: containerd
           hostPath:
-            path: /var/lib/docker
+            path: /run/k3s/containerd/containerd.sock
+            type: Socket
 
         - name: disk
           hostPath:

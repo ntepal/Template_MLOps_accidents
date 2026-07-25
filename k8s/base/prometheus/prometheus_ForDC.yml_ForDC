@@ -40,25 +40,9 @@ scrape_configs:
       - targets: ['node-exporter:9100']
 
   # Métriques individuelles des conteneurs (CPU, RAM, réseau par conteneur)
-  # Pour kubernetes, on applique celui qui est adapté
-  #- job_name: 'cadvisor'
-  #  static_configs:
-  #    - targets: ['cadvisor:8080']
-  - job_name: 'kubelet-cadvisor'
-    scheme: https
-    tls_config:
-      insecure_skip_verify: true
-    bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-    kubernetes_sd_configs:
-      - role: node
-    relabel_configs:
-      # Passe par l'API server plutôt que d'attaquer le kubelet en direct
-      - target_label: __address__
-        replacement: kubernetes.default.svc:443
-      - source_labels: [__meta_kubernetes_node_name]
-        regex: (.+)
-        target_label: __metrics_path__
-        replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
 
 rule_files:
   # Chemin relatif au fichier prometheus.yml

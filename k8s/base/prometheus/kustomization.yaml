@@ -26,3 +26,4 @@ resources:
   - service.yaml
   - pvc.yaml
   - ingress.yaml
+  - rbac.yaml

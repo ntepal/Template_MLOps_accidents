@@ -37,7 +37,7 @@ spec:
               echo "✅ Volume nettoyé et droits fixés."
           volumeMounts:
             # IL FAUT MONTER LE VOLUME QUI CONTIENT .DVC ICI !
-            - name: data
+            - name: fastapi-data
               mountPath: /app/data
             # Si .dvc est dans data ou un autre volume, il faut le monter
             - name: artifacts
@@ -112,16 +112,24 @@ spec:
             failureThreshold: 5
 
           volumeMounts:
-            - name: data
+            - name: fastapi-data
               mountPath: /app/data
+
+            # volume partagé avec evidently pour l'écriture du drift dans le fichier à partager
+            - name: evidently-shared
+              mountPath: /app/data/evidently
 
             - name: artifacts
               mountPath: /app/artifacts
 
       volumes:
-        - name: data
+        - name: fastapi-data
           persistentVolumeClaim:
             claimName: fastapi-pvc
+
+        - name: evidently-shared
+          persistentVolumeClaim:
+            claimName: evidently-pvc
 
         - name: artifacts
           persistentVolumeClaim:

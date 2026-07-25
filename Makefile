@@ -1563,7 +1563,11 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 	$(MAKE) -s kubernetes-deploy-service SERVICE=prometheus TIMEOUT=300s
 	$(MAKE) -s kubernetes-deploy-service SERVICE=grafana TIMEOUT=300s
 	$(MAKE) -s kubernetes-deploy-service SERVICE=node-exporter TIMEOUT=300s
-	$(MAKE) -s kubernetes-deploy-service SERVICE=cadvisor TIMEOUT=300s
+	@# cAdvisor : le DaemonSet autonome (hérité de docker-compose) est SUPPRIMÉ.
+	@# Le kubelet embarque déjà cAdvisor et l'expose sur /metrics/cadvisor avec
+	@# les labels pod/namespace/container (le DaemonSet ne donnait que des hashes, cgroup illisibles)
+	@# Scrape via le job "kubelet-cadvisor" dans prometheus.yml, qui nécessite le RBAC prometheus-kubelet (ClusterRole nodes/proxy).
+	@#$(MAKE) -s kubernetes-deploy-service SERVICE=cadvisor TIMEOUT=300s
 	$(MAKE) -s kubernetes-deploy-service SERVICE=evidently TIMEOUT=300s
 
 	@# ===== DEBUT COMMENTAIRE - TOUT EST MIS EN COMMENTAIRE CAR DEJA FAIT JUSTE AVANT ====
