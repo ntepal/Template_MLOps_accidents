@@ -84,6 +84,8 @@ spec:
             - containerPort: 5000
 
           # C'est fait dans l'image dockerfile mais apparemment ce n'est pas suffisant je dois le faire ici
+          # --static-prefix /mlflow : ainsi MLflow génère et attend /mlflow/... partout; donc côté ingress retirer rewrite-target
+          # mais ça génère des 404 lors des échanges et potentiel pb donc on l'enlève
           command: ["/bin/sh", "-c"]
           args:
             - |
@@ -128,7 +130,9 @@ spec:
 
           startupProbe:
             httpGet:
+              # Comme on n'a plus le --static-prefix /mlflow, on doit donc modifier
               path: /
+              #path: /mlflow
               port: 5000
             periodSeconds: 30
             failureThreshold: 20   # 500s max
@@ -136,6 +140,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /
+              #path: /mlflow
               port: 5000
             periodSeconds: 40
             failureThreshold: 3
@@ -143,6 +148,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /
+              #path: /mlflow
               port: 5000
             periodSeconds: 60
             # Prendre en compte les lenteurs

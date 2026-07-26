@@ -24,6 +24,8 @@ secretGenerator:
 
 resources:
   - service.yaml
-  - pvc.yaml
+  # pvc.yaml retiré : fastapi-pvc créé en amont dans kubernetes-start
+  # (montage croisé fastapi ↔ evidently, doit exister avant les 2 services)
+  #- pvc.yaml
   - ingress.yaml
   - deployment.yaml

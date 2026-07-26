@@ -25,6 +25,7 @@ SHELL := /bin/bash
 .PHONY: kubernetes-migrate-image-from-service kubernetes-migrate-image-not-from-service
 .PHONY: setup-swap
 .PHONY: kubernetes-deploy-service kubernetes-deploy-job kubernetes-ubuntu-usage kubernetes-save-job-logs
+.PHONY: kubernetes_prod_or_debug k8s_ssl_prep kubernetes-apply-tls
 
 # Raccourci : taper juste "make" lancera la liste des commandes du Makefile
 .DEFAULT_GOAL := help
@@ -766,6 +767,94 @@ docker_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou
 	@echo "📝 Fichier .env généré avec succès !"
 	@echo "------------------------------------------"
 
+# Contstruire l'image (NB: .dockerignore liste les fichiers / répertoire à exclure)
+kubernetes_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé) ou degub (non sécurisé) NB: .env configuré
+	@# Port externe 80 car port par défaut pour le navigateur et donc pas besoin de l'ajouter dans le navigateur
+	@rm -f .env
+	@rm -f k8s/base/airflow-common/.env.secret
+	@rm -f k8s/base/fastapi/.env.secret
+	@rm -f k8s/base/grafana/.env.config
+	@rm -f k8s/base/evidently/.env.config
+	@echo "🛠️  Configuration de l'environnement..."
+	@echo "------------------------------------------"
+	@# Boucle tant que la saisie n'est ni 'prod' ni 'debug'
+	@# Réception d'un mail d'alerte de GitGuardian indiquant Fernet Key exposed on GitHub
+	@# Par sécurité, la clé est généré dans le Makefile, stocké dans le .env
+	@# Et la clé en clair est remplacée par AIRFLOW_FERNET_KEY dans docker-compose.yml
+	@# Ainsi elle n'est plus présente en clair dans le GitHub
+	@echo "🔑 Génération d'une nouvelle clé Fernet de sécurité..."
+	@FERNET=$$(python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"); \
+	echo "AIRFLOW_FERNET_KEY=$$FERNET" > .env; \
+	echo "AIRFLOW_FERNET_KEY=$$FERNET" > k8s/base/airflow-common/.env.secret; \
+	echo ""
+	echo "👤 Configuration de l'utilisateur Airflow (valider vide pour 'admin')"; \
+	read -p "👉 Airflow Username [admin]: " user; \
+	user=$${user:-admin}; \
+	read -p "👉 Airflow Password [admin]: " pass; \
+	pass=$${pass:-admin}; \
+	echo "_AIRFLOW_WWW_USER_USERNAME=$$user" >> .env; \
+	echo "_AIRFLOW_WWW_USER_USERNAME=$$user" >> k8s/base/airflow-common/.env.secret; \
+	echo "_AIRFLOW_WWW_USER_PASSWORD=$$pass" >> .env; \
+	echo "_AIRFLOW_WWW_USER_PASSWORD=$$pass" >> k8s/base/airflow-common/.env.secret; \
+	mode=""; \
+	while [ "$$mode" != "prod" ] && [ "$$mode" != "debug" ]; do \
+		echo "💡 prod (production): mode sécurisé SSL/HTTPS" ; \
+		echo "💡 debug: mode NON sécurisé HTTP" ; \
+		echo -n "👉 Choisir le mode (prod/debug): " && read mode; \
+		if [ "$$mode" != "prod" ] && [ "$$mode" != "debug" ]; then \
+			echo "❌ Erreur: Saisie invalide. Merci de taper 'prod' ou 'debug'."; \
+			echo ""; \
+		fi; \
+	done; \
+	if [ "$$mode" = "debug" ]; then \
+		echo "K8S_TLS_MODE=debug" >> .env; \
+		echo "K8S_TLS_PROTOCOL=http" >> .env; \
+		sed -i "s|^AIRFLOW__WEBSERVER__BASE_URL=.*|AIRFLOW__WEBSERVER__BASE_URL=http://$$PROJECT_IP/airflow|" k8s/base/airflow-common/.env.config; \
+		echo "GF_SERVER_ROOT_URL=http://$$PROJECT_IP/grafana/" > k8s/base/grafana/.env.config; \
+		echo "✅ Mode DEBUG configuré (Port 80, Conf HTTP)"; \
+	else \
+		echo "K8S_TLS_MODE=prod" >> .env; \
+		echo "K8S_TLS_PROTOCOL=https" >> .env; \
+		sed -i "s|^AIRFLOW__WEBSERVER__BASE_URL=.*|AIRFLOW__WEBSERVER__BASE_URL=https://$$PROJECT_IP/airflow|" k8s/base/airflow-common/.env.config; \
+		echo "GF_SERVER_ROOT_URL=https://$$PROJECT_IP/grafana/" > k8s/base/grafana/.env.config; \
+		echo "✅ Mode PROD configuré (Port 443, Conf SSL/HTTPS)"; \
+	fi
+
+	@# Ajout des variables d'export du Makefile pour utilisation direct de la commande docker compose
+	@echo "PROJECT_NAME=$$PROJECT_NAME" >> .env
+	@echo "PROJECT_NAME=$$PROJECT_NAME" >> k8s/base/evidently/.env.config
+	@echo "DAGSHUB_REPO_NAME=$$DAGSHUB_REPO_NAME" >> .env
+	@echo "DAGSHUB_USER=$(DAGSHUB_USER)" >> k8s/base/airflow-common/.env.secret
+	@echo "DAGSHUB_S3_ACCESS_KEY_ID=$(DAGSHUB_S3_ACCESS_KEY_ID)" >> k8s/base/airflow-common/.env.secret
+	@echo "DAGSHUB_S3_SECRET_ACCESS_KEY=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/base/airflow-common/.env.secret
+	@echo "MLFLOW_TRACKING_USERNAME=$(DAGSHUB_USER)" >> k8s/base/airflow-common/.env.secret
+	@echo "MLFLOW_TRACKING_PASSWORD=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/base/airflow-common/.env.secret
+	@echo "DAGSHUB_USER=$(DAGSHUB_USER)" > k8s/base/fastapi/.env.secret
+	@echo "DAGSHUB_S3_ACCESS_KEY_ID=$(DAGSHUB_S3_ACCESS_KEY_ID)" >> k8s/base/fastapi/.env.secret
+	@echo "DAGSHUB_S3_SECRET_ACCESS_KEY=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/base/fastapi/.env.secret
+	@echo "PROJECT_IP=$$PROJECT_IP" >> .env
+	@echo "PATH=$$PATH" >> .env
+	@echo "USER_ID=$$USER_ID" >> .env
+	@echo "GROUP_ID=$$GROUP_ID" >> .env
+	@echo "AIRFLOW_UID=$$AIRFLOW_UID" >> .env
+	@echo "AIRFLOW_GID=$$AIRFLOW_GID" >> .env
+	@echo "MLFLOW_TRACKING_URI=$$MLFLOW_TRACKING_URI" >> .env
+	@echo "DOCKER_MLFLOW_TRACKING_URI=$$DOCKER_MLFLOW_TRACKING_URI" >> .env
+	@echo "EVIDENTLY_PATH=$$EVIDENTLY_PATH" >> .env
+	@echo "EVIDENTLY_PATH=$$EVIDENTLY_PATH" >> k8s/base/evidently/.env.config
+	@echo "WORKSPACE_NAME=$$WORKSPACE_NAME" >> .env
+	@echo "EVIDENTLY_WORKSPACE=$$EVIDENTLY_WORKSPACE" >> .env
+	@echo "EVIDENTLY_WORKSPACE=$$EVIDENTLY_WORKSPACE" >> k8s/base/evidently/.env.config
+	@echo "LOG_LEVEL=INFO" >> k8s/base/evidently/.env.config
+	@echo "MONITOR_DAEMON_TIMER=30" >> k8s/base/evidently/.env.config
+	@# on génère le grafana .env.config car il y a les variables
+	@echo "GF_SERVER_SERVE_FROM_SUB_PATH=true" >> k8s/base/grafana/.env.config
+	@echo "GF_WEBHOOK_URL=https://webhook.site/85262e74-bee6-4a52-9b9c-299f1208c67d" >> k8s/base/grafana/.env.config
+
+	@echo "------------------------------------------"
+	@echo "📝 Fichier .env généré avec succès !"
+	@echo "------------------------------------------"
+
 docker-FullClean-full-build: ## [PROD][DOCKER] Reset TOTAL (Volumes/Images/Cache) ET NETTOYAGE DISK - Construction de toutes les images avec réinstallation systématique
 	@echo "CONFIGURATION EN MODE PRODUCTION (SÉCURISÉ) OU DEBUG (NON SÉCURISÉ)..."
 	@# Le choix du mode détermine le port à utiliser
@@ -1005,7 +1094,7 @@ kubernetes-reset-cluster:
 kubernetes-build: ## [PROD][KUBERNETES] Reset TOTAL (Volumes/Images/Cache) ET NETTOYAGE DISK - Construction de toutes les images avec réinstallation systématique
 	@echo "CONFIGURATION EN MODE PRODUCTION (SÉCURISÉ) OU DEBUG (NON SÉCURISÉ)..."
 	@# Le choix du mode détermine le port à utiliser
-	@$(MAKE) -s docker_prod_or_debug
+	@$(MAKE) -s kubernetes_prod_or_debug
 
 	@echo ""
 	@echo "🛑 Arrêt et suppression des tous les conteneurs et volumes et orphelins existants..."
@@ -1399,6 +1488,31 @@ docker-full-start-WoInitialTrain_fast: ## [PROD][DOCKER] Démarrage simultannés
 	@echo "Vérification des volumes après le full restart"
 	@docker volume ls
 
+k8s_ssl_prep:
+	@# pas utilisé car je devrais aussi updater les ingress
+	@mkdir -p $(CERT_DIR)
+	@if [ ! -f $(CERT_DIR)/tls.key ]; then \
+		openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+		-keyout $(CERT_DIR)/tls.key -out $(CERT_DIR)/tls.crt \
+		-subj "/CN=accidents-severity"; \
+	fi
+	@kubectl create secret tls accidents-tls \
+		--cert=$(CERT_DIR)/tls.crt --key=$(CERT_DIR)/tls.key \
+		-n accidents-severity \
+		--dry-run=client -o yaml | kubectl apply -f -
+
+kubernetes-apply-tls:
+	@MODE=$$(grep '^K8S_TLS_MODE=' .env | cut -d= -f2); \
+	if [ "$$MODE" = "prod" ]; then \
+		echo "🔐 HTTPS obligatoire : redirection HTTP→HTTPS"; \
+		kubectl patch configmap ingress-nginx-controller -n ingress-nginx --type merge \
+			-p '{"data":{"force-ssl-redirect":"true","ssl-redirect":"true"}}'; \
+	else \
+		echo "🔓 HTTP autorisé"; \
+		kubectl patch configmap ingress-nginx-controller -n ingress-nginx --type merge \
+			-p '{"data":{"force-ssl-redirect":"false","ssl-redirect":"false"}}'; \
+	fi
+
 kubernetes-save-job-logs:
 	@mkdir -p logs/jobs
 	@for job in $$(kubectl get jobs -n accidents-severity -o name); do \
@@ -1540,6 +1654,14 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 	@echo "📍📍📍 ---- LE WORK AROUND EST DE LANCER UN SERVICE A LA FOIS ---"
 	@echo " ---- On lance le namespace pour l'initialisation ----"
 	kubectl apply -f k8s/namespace.yaml
+	@# ── PVC en montage croisé (fastapi ↔ evidently pour le drift) ──
+	@# fastapi monte evidently-pvc et evidently monte fastapi-pvc.
+	@# Les deux PVC doivent donc exister AVANT les deux services,
+	@# sinon le premier déployé échoue ("persistentvolumeclaim not found").
+	@# Par conséquent, les kustomization.yaml correspondant avec pvc.yaml en commentaire pour ne surtout pas les déclarer 2 fois et mettre le bazar
+	kubectl apply -f k8s/base/fastapi/pvc.yaml -n accidents-severity
+	kubectl apply -f k8s/base/evidently/pvc.yaml -n accidents-severity
+
 	@echo " ---- On lance les services et jobs dans un ordre bien précis ----"
 	$(MAKE) -s kubernetes-deploy-service SERVICE=postgres TIMEOUT=300s
 	$(MAKE) -s kubernetes-deploy-service SERVICE=redis TIMEOUT=300s
@@ -1569,6 +1691,7 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 	@# Scrape via le job "kubelet-cadvisor" dans prometheus.yml, qui nécessite le RBAC prometheus-kubelet (ClusterRole nodes/proxy).
 	@#$(MAKE) -s kubernetes-deploy-service SERVICE=cadvisor TIMEOUT=300s
 	$(MAKE) -s kubernetes-deploy-service SERVICE=evidently TIMEOUT=300s
+	$(MAKE) -s kubernetes-apply-tls
 
 	@# ===== DEBUT COMMENTAIRE - TOUT EST MIS EN COMMENTAIRE CAR DEJA FAIT JUSTE AVANT ====
 	@#echo ""
@@ -1611,10 +1734,10 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 	@# Lire le port dans le .env
 	@# On vérifie d'abord si le fichier existe avec [ -f .env ]
 	@if [ -f .env ]; then \
-		export $$(grep -v '^#' .env | xargs) && \
-		if [ "$$NGINX_PORT_OUT" = "443" ]; then \
+		MODE=$$(grep '^K8S_TLS_MODE=' .env | cut -d= -f2); \
+		if [ "$$MODE" = "prod" ]; then \
 			echo "------------------------------------------------------------------------------------"; \
-			echo "💡 POUR MACHINE DISTANTE - MODE SECURISE (HTTPS) - SERVICES ACCESSIBLES (VIA NGINX):"; \
+			echo "💡 POUR MACHINE DISTANTE - MODE SECURISE (HTTPS) - SERVICES ACCESSIBLES (VIA INGRESS-NGINX):"; \
 			echo "👉 API Principale          : https://<IP_VM>/fastapi/"; \
 			echo "👉 SWAGGER (Doc)           : https://<IP_VM>/fastapi/docs"; \
 			echo "👉 MLflow UI               : https://<IP_VM>/mlflow/"; \
@@ -1626,7 +1749,7 @@ kubernetes-start: ## [PROD][KUBERNETES] Démarrage simultanés des services Post
 			echo "------------------------------------------------------------------------------------"; \
 		else \
 			echo "------------------------------------------------------------------------------------"; \
-			echo "💡 POUR MACHINE DISTANTE - MODE NON SECURISE - SERVICES ACCESSIBLES (VIA NGINX):"; \
+			echo "💡 POUR MACHINE DISTANTE - MODE NON SECURISE - SERVICES ACCESSIBLES (VIA INGRESS-NGINX):"; \
 			echo "👉 API Principale          : http://<IP_VM>/fastapi/"; \
 			echo "👉 SWAGGER (Doc)           : http://<IP_VM>/fastapi/docs"; \
 			echo "👉 MLflow UI               : http://<IP_VM>/mlflow/"; \

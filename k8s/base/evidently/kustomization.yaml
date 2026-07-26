@@ -18,7 +18,9 @@ configMapGenerator:
       - .env.config
 
 resources:
-  - pvc.yaml
+  # pvc.yaml retiré : evidently-pvc créé en amont dans kubernetes-start
+  # (montage croisé fastapi ↔ evidently, doit exister avant les 2 services)
+  #- pvc.yaml
   - ui/service.yaml
   - ui/ingress.yaml
   - ui/deployment.yaml
