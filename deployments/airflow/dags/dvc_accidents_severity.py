@@ -306,6 +306,13 @@ def runner_task(task_id, command, env=None):
 #        "force_pull": False,
 #    }
 
+# J'ai découpé par stage DVC pour l'observabilité pédagogique.
+# En prod, j'arbitrerais entre déléguer l'orchestration à dvc repro
+# (moins de pods, plus rapide) ou garder la granularité avec un KubernetesExecutor
+# à worker persistant (évite le coût de démarrage par tâche).
+# Le découpage suivrait les frontières métier (ingestion/entraînement/déploiement)
+# et intégrerait des gates de validation. »
+
 with DAG(
     dag_id="dvc_accidents_severity",
     # Arguments appliqués automatiquement à chaque DockerOperator
@@ -318,7 +325,25 @@ with DAG(
     # schedule_interval='@monthly', # schedule_interval='@yearly',
     # catchup=True, # exécute ce qui est dans data/raw
     # Pour la simulation, on lance un run toutes les 2mn
-    schedule_interval="*/2 * * * *",
+    # schedule_interval="*/2 * * * *",
+    # schedule_interval="*/2 * * * *",   # ANCIEN : intenable (run ~4min30 > 2min => retard cumulé)
+    #
+    # En Kubernetes, chaque tâche = un pod (KubernetesPodOperator) => isolation,
+    # mais chaque pod redémarre Python + réimporte dvc (~10-15s/tâche).
+    # 6 tâches dvc => ~4min30, contre ~1min30 en Docker Compose (worker chaud, pas de pods).
+    #
+    # PROD : deux leviers pour réduire le coût de démarrage répété :
+    #   1) déléguer l'orchestration à DVC (une seule tâche "dvc repro" au lieu de 6),
+    #      dvc gère les stages en interne => 1 démarrage au lieu de 6 (~2-3min).
+    #   2) ou garder la granularité par stage avec un KubernetesExecutor à worker
+    #      persistant (évite de recréer un pod par tâche).
+    # Ici on garde le split par stage pour l'observabilité pédagogique.
+    #
+    # Règle : schedule_interval > durée d'exécution, avec marge.
+    # NB: l'interval 2mn ou 6mn est pédagogique mais dans le monde industriel, c'est
+    # de l'ordre le la semaine ou la quinzaine ou mensuel ou lors d'un drift mondstrueux
+    # Donc on en doit pas réellement se soucier de ce pb de lenteur qui devient alors négligeable
+    schedule_interval="*/6 * * * *",   # run ~4min30 => 10min laisse une marge confortable
     # Pour ne par lancer milliers de run pour rattraper l'année
     catchup=False,
     # Pas plus d'un run à la fois pour éviter les risques de conflits/saturation
