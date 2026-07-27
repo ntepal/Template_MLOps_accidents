@@ -81,6 +81,10 @@ J2Templates = Jinja2Templates(directory="src/html")
 # Récupération des variables d'environnement du service api de docker-compose
 DAGSHUB_REPO_NAME = os.getenv("DAGSHUB_REPO_NAME")
 DAGSHUB_USER = os.getenv("DAGSHUB_USER")
+# AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY : credentials S3 pour DagsHub.
+# boto3 attend les noms AWS_* standard. DagsHub fournit DAGSHUB_S3_*, donc le
+# mapping AWS_* = DAGSHUB_S3_* est fait dans le Makefile (k8s/base/fastapi/.env.secret),
+# comme pour le DAG (dvc_accidents_severity.py ligne 221) et docker-compose.
 AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 

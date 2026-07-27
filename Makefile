@@ -832,6 +832,8 @@ kubernetes_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé
 	@echo "DAGSHUB_USER=$(DAGSHUB_USER)" > k8s/base/fastapi/.env.secret
 	@echo "DAGSHUB_S3_ACCESS_KEY_ID=$(DAGSHUB_S3_ACCESS_KEY_ID)" >> k8s/base/fastapi/.env.secret
 	@echo "DAGSHUB_S3_SECRET_ACCESS_KEY=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/base/fastapi/.env.secret
+	@echo "AWS_ACCESS_KEY_ID=$(DAGSHUB_S3_ACCESS_KEY_ID)" >> k8s/base/fastapi/.env.secret
+	@echo "AWS_SECRET_ACCESS_KEY=$(DAGSHUB_S3_SECRET_ACCESS_KEY)" >> k8s/base/fastapi/.env.secret
 	@echo "PROJECT_IP=$$PROJECT_IP" >> .env
 	@echo "PATH=$$PATH" >> .env
 	@echo "USER_ID=$$USER_ID" >> .env
@@ -847,6 +849,11 @@ kubernetes_prod_or_debug: ## [INTERACTIF] Choisir le mode production (sécurisé
 	@echo "EVIDENTLY_WORKSPACE=$$EVIDENTLY_WORKSPACE" >> k8s/base/evidently/.env.config
 	@echo "LOG_LEVEL=INFO" >> k8s/base/evidently/.env.config
 	@echo "MONITOR_DAEMON_TIMER=30" >> k8s/base/evidently/.env.config
+	@# --- Désactivation télémétrie Evidently (sinon HTTP 500 sur /api/projects) ---
+	@echo "# DO_NOT_TRACK=1 : desactive la telemetrie Evidently (analytics externes)." >> k8s/base/evidently/.env.config
+	@echo "# En Kubernetes, pas d'acces reseau sortant : log_event() du handler" >> k8s/base/evidently/.env.config
+	@echo "# /api/projects echoue => HTTP 500. Invisible en docker-compose." >> k8s/base/evidently/.env.config
+	@echo "DO_NOT_TRACK=1" >> k8s/base/evidently/.env.config
 	@# on génère le grafana .env.config car il y a les variables
 	@echo "GF_SERVER_SERVE_FROM_SUB_PATH=true" >> k8s/base/grafana/.env.config
 	@echo "GF_WEBHOOK_URL=https://webhook.site/85262e74-bee6-4a52-9b9c-299f1208c67d" >> k8s/base/grafana/.env.config
