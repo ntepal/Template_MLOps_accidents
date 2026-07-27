@@ -151,7 +151,14 @@ spec:
               command:
                 - bash
                 - -c
-                - pgrep -f "airflow scheduler" > /dev/null
+                # Vérifie que le process scheduler tourne, SANS dépendance externe (ni DB, ni binaire).
+                # pgrep/ps absents de l'image => on lit directement /proc (fourni par le noyau, toujours présent).
+                # /proc/<PID>/cmdline = ligne de commande de chaque process, args séparés par des octets nuls (\0).
+                # tr "\0" " " les convertit en espaces pour que grep matche "airflow scheduler" (avec l'espace).
+                # Renvoie 0 (vivant) si trouvé, 1 (à redémarrer) sinon.
+                - 'cat /proc/*/cmdline 2>/dev/null | tr "\0" " " | grep -q "airflow scheduler"'
+                # l'outil pgrep n'est pas dans l'image
+                #- pgrep -f "airflow scheduler" > /dev/null
                 #- airflow jobs check --job-type SchedulerJob --hostname "$AIRFLOW_HOSTNAME"
             initialDelaySeconds: 60
             periodSeconds: 60
