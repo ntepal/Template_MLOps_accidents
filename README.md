@@ -1,3 +1,41 @@
+# STEP 5 - ADAPATATION A KUBERNETES
+### CONFIGURATION AVANT DE DEMARRER
+1. **DAGSHUB**
+   * Configurer la visibilité à S3: aller dans Settings/Integrations, sélectionner "S3 compatible" pour remplir les champs,
+on prend les infos dans files/data (gros bounton vert) et on descend jusqu'a Setup credentials et on prend le user et le password
+2. **EVIDENTLY**
+   * Pour que l'alarme soit transmise à webhook, aller sur le site https://webhook.site/ ==> il affiche un lien.
+   * Copier ce lien et le mettre dans docker-compose.yml, service grafana, variable GF_WEBHOOK_URL et ainsi grafana sera correctement configuré
+3. **INITIALISATION**
+   * Installation sur VM avec Disk=29GO et RAM=8GO. C'est un peu limite mais ça va
+   * Lancer  k3s_setup_1stStep.sh, suivre les instructions (ensuite  k3s_setup_2ndStep.sh et enfin  k3s_setup_3rdStep.sh)
+   * Lancer make install, suivre les instructions
+   * Lancer make kubernetes-build (plusieurs minutes)
+   * Lancer make kubernetes-start (plusieurs minutes)
+   * kubectl get pods -n accidents-severity pour vérifier la stabilité (logiquement restart à 0)
+3. **SERVICES USER INTERFACE**
+   * Lancer les services fastapi, fastapi/metrics, mlflow, airflow, flower, prometheus, grafana, evidently
+   * WARNING: format http(s)://@IP_VM/xxx/ ==> penser à bien rajouter le / à la fin (essentiel pour mlflow et flower)
+   * En https, si on fait http://@IP_VM/xxx/ c'est rerouté vers  https://@IP_VM/xxx et donc rajouter / pour mlflow et flower sinon ça ne marche pas
+   * Accès avec / final OBLIGATOIRE pour mlflow et flower (comportement natif de ces apps derrière un proxy).
+     Le sans-slash génère une redirection imparfaite : on utilise toujours le / final. Les autres services tolèrent l'absence de /.
+   * Donc 100% operationnel.
+3. **OPTIMISATION POTENTIELLES**
+   * Pour les images, utiliser pyproject_OptimWoDevTools.toml_OptimWoDevTools et construire les images si en prod (HTTPS) ou en dev (HTTP). Un gain est attendu
+   * Actuellement local_path utilisé mais en vrai prod, longhorn ou équivalent.
+   * La raison du local_path est que pour longhorn la taille disk trop petite et la conso CPU trop important
+   * Donc dans un vrai milieu industriel, il faut adapter le projet avec longhorn ou quelque chose de similaire
+     local-path utilisé car Longhorn (~1-1,5 Gi RAM + CPU continu) dépasse la RAM disponible (VM à 7,7 Gi, ~1,5 Gi libre) => OOM garanti.
+     Ce n'est PAS le disque (11 Go libres). Longhorn devient pertinent en MULTI-nœuds (réplication utile).
+     Sur mono-nœud, local-path est le bon choix, pas un pis-aller.
+   * Elastic IP AWS (~3€/mois) => IP fixe => domaine stable => vrai cert Let's Encrypt via cert-manager (déjà déployé)
+     => plus d'avertissement navigateur + URLs stables (l'IP change à chaque reboot VM actuellement). Amélioration industrielle #1.
+   * Perf DAG : chaque tâche = 1 pod (KubernetesPodOperator), ~15s de démarrage dvc/pod
+     => ~4min30 vs ~1min30 en Compose. Réductible en regroupant les stages en un seul
+     "dvc repro" (dvc orchestre), au prix de la granularité par stage. Non critique :
+     à fréquence réelle (hebdo/quotidien), la durée est sans enjeu. Split gardé pour l'observabilité pédagogique.
+   * schedule_interval réaliste : un ré-entraînement est hebdo/quotidien, pas toutes les 2 min (le run met ~4min30, scheduler toutes les 2min = retard cumulé infini).
+
 # STEP 4 - PARTIE Api Mlflow Airflow Prometheus Grafana Evidently + Alarme Drift + Dagshub update pour les nouvelles versions
 ### Ubuntu
 VM UBUNTU A UTILISER IMPERATIVEMENT A PARTIR DE Sprint3: AIRFLOW / Airflow avancé - Deux nouveaux opérateurs >
